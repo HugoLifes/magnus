@@ -1,0 +1,61 @@
+name: magnus_desktop
+description: Magnus — cliente de escritorio (Windows/macOS/Linux). Clean architecture + BLoC.
+publish_to: "none"
+version: 0.0.1+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # --- Estado / arquitectura ---
+  flutter_bloc: ^8.1.6        # BLoC/Cubit — gestión de estado (clean architecture)
+  bloc: ^8.1.4
+  equatable: ^2.0.5           # igualdad por valor en estados y entidades
+  get_it: ^7.7.0             # service locator (inyección de dependencias)
+  provider: ^6.1.2            # (pedido) DI ligera / acceso a temas
+
+  # --- Red ---
+  dio: ^5.7.0                 # (pedido) cliente HTTP hacia el daemon de Magnus
+
+  # --- Diseño: 3 sistemas nativos ---
+  fluent_ui: ^4.9.2           # (pedido) diseño Windows (Fluent / WinUI)
+  macos_ui: ^2.0.9            # diseño Apple de ESCRITORIO (Cupertino es de iOS)
+  # Material viene en el SDK de Flutter (no necesita paquete).
+
+  # --- Navegación / shell ---
+  sidebarx: ^0.17.1           # (pedido) sidebar de navegación colapsable
+  go_router: ^14.2.7          # navegación declarativa entre vistas
+
+  # --- Ventana nativa / efectos ---
+  window_manager: ^0.4.2      # tamaño mínimo, comportamiento nativo, responsive
+  flutter_acrylic: ^1.1.4     # (pedido) Mica/Acrylic — fondo translúcido nativo Windows
+
+  # --- UX / widgets ---
+  fl_chart: ^0.69.0           # gráficas para el dashboard de tokens/coste
+  data_table_2: ^2.5.15       # tablas con scroll/orden para modelos y cuantizaciones
+  google_fonts: ^6.2.1        # tipografía
+  phosphor_flutter: ^2.1.0    # set de iconos consistente
+  toastification: ^2.3.0      # notificaciones/toasts no intrusivos
+
+  # --- Persistencia ligera ---
+  shared_preferences: ^2.3.2  # recordar diseño elegido y URL del daemon
+  flutter_secure_storage: ^9.2.2  # token de auth del daemon (a futuro)
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+  msix: ^3.16.7               # (pedido) empaquetado .msix para distribuir en Windows
+
+flutter:
+  uses-material-design: true
+
+# Configuración de empaquetado Windows (msix). Ajusta antes de publicar.
+msix_config:
+  display_name: Magnus
+  publisher_display_name: Magnus
+  identity_name: io.magnus.desktop
+  msix_version: 0.0.1.0
+  logo_path: assets\icon.png
+  capabilities: internetClient

@@ -24,10 +24,12 @@ Estado: `Fase 0` entregada (esqueleto). `Fase 1` es el grueso del backend.
 - [ ] Exponer `pull` y `quants` también por la API del daemon (para los clientes Flutter)
 - [ ] Congelar y documentar el contrato de la API (OpenAPI)
 
-## Fase 2 — Cliente Flutter de escritorio (otra sesión)
-- [ ] Generar cliente desde el OpenAPI del daemon
-- [ ] Vistas: chat, editor de skills, dashboard de coste/ahorro, gestor de modelos
-- [ ] Builds firmados Win/Mac/Linux
+## Fase 2 — Cliente Flutter de escritorio
+- [x] Scaffold: clean architecture + BLoC + 3 diseños nativos (Windows/Material/macOS),
+      consumiendo `/hardware`, `/models`, `/compatibility`. `flutter analyze` limpio. (`clients/desktop/`)
+- [ ] Vistas: chat (WebSocket), editor de skills, dashboard de coste/ahorro
+- [ ] Regenerar capa de red desde el OpenAPI del daemon al congelar el contrato
+- [ ] Builds firmados Win/Mac/Linux (+ `.msix`)
 
 ## Fase 3 — Producto
 - [ ] App móvil Flutter (conexión al server por red local / túnel)
