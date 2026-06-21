@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Magnus runtime data (modelos, memoria, vector store, logs)
+data/
+models/
+*.gguf
+*.safetensors
+magnus.db
+*.sqlite
+*.log
+
+# Entornos / secretos
+.env
+.env.*
+!.env.example
+
+# IDE / SO
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
