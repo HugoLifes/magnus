@@ -1,10 +1,17 @@
 """`magnus` — punto de entrada de la CLI.
 
-Comandos implementados (Fase 0):
-    magnus hardware                 GPUs detectadas en esta máquina
-    magnus models                   modelos del registro
-    magnus check <modelo> [opts]    ¿cabe el modelo en un destino?
-    magnus serve                    arranca el daemon (FastAPI)
+Comandos implementados:
+    Fase 0:
+      magnus hardware                 GPUs detectadas en esta máquina
+      magnus models                   modelos del registro
+      magnus check <modelo> [opts]    ¿cabe el modelo en un destino?
+      magnus quants <modelo> [opts]   analiza todas las cuantizaciones
+      magnus pull <repo>              descarga modelo desde Hugging Face
+      magnus serve                    arranca el daemon (FastAPI)
+    Fase 1:
+      magnus load <model>             carga un modelo en VRAM via Ollama
+      magnus unload <model>           libera un modelo de VRAM
+      magnus ps                       modelos cargados en VRAM ahora mismo
 
 Diseño: la CLI no contiene lógica de negocio. Todo vive en `core`. Esto permite
 que el daemon y, después, los clientes Flutter reutilicen exactamente lo mismo.
@@ -18,6 +25,9 @@ from rich.table import Table
 
 from core import (
     HARDWARE_PRESETS,
+    RuntimeBackend,
+    RuntimeManager,
+    RuntimeManagerError,
     check_fit,
     detect_gpus,
     download_model,
@@ -157,6 +167,84 @@ def pull(
         console.print(f"[cyan]Comando:[/cyan] {res.message}")
     else:
         console.print(f"[{color}]{res.message}[/{color}]")
+
+
+@app.command()
+def load(
+    model: str = typer.Argument(..., help="Nombre del modelo en Ollama, p. ej. 'llama3.1:8b'."),
+    backend: str = typer.Option("ollama", "--backend", "-b", help="Runtime: ollama (hoy)."),
+    no_pull: bool = typer.Option(False, "--no-pull", help="No descargar si no está localmente."),
+    ollama_url: str = typer.Option("http://127.0.0.1:11434", "--ollama-url", hidden=True),
+) -> None:
+    """Carga un modelo en VRAM. Si no está en Ollama local, lo descarga primero."""
+    mgr = RuntimeManager(ollama_url=ollama_url)
+    try:
+        rt = RuntimeBackend(backend)
+    except ValueError:
+        console.print(f"[red]Backend desconocido: {backend!r}. Opciones: ollama[/red]")
+        raise typer.Exit(code=1)
+
+    console.print(f"Cargando [bold]{model}[/bold] en {rt.value}…")
+    try:
+        loaded = mgr.serve(model, backend=rt, pull_if_missing=not no_pull)
+    except RuntimeManagerError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1)
+
+    vram_str = f"{loaded.size_vram_gib} GiB" if loaded.size_vram_gib else "—"
+    console.print(f"[green]✓ {loaded.model_id}[/green] cargado en VRAM ({vram_str})")
+
+
+@app.command()
+def unload(
+    model: str = typer.Argument(..., help="Nombre del modelo a descargar de VRAM."),
+    backend: str = typer.Option("ollama", "--backend", "-b"),
+    delete: bool = typer.Option(False, "--delete", help="Eliminar también del disco de Ollama."),
+    ollama_url: str = typer.Option("http://127.0.0.1:11434", "--ollama-url", hidden=True),
+) -> None:
+    """Libera un modelo de VRAM (sin borrarlo del disco salvo --delete)."""
+    mgr = RuntimeManager(ollama_url=ollama_url)
+    try:
+        rt = RuntimeBackend(backend)
+    except ValueError:
+        console.print(f"[red]Backend desconocido: {backend!r}.[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        mgr.stop(model, backend=rt, delete_local=delete)
+    except RuntimeManagerError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1)
+
+    action = "eliminado del disco" if delete else "liberado de VRAM"
+    console.print(f"[green]✓ {model}[/green] {action}.")
+
+
+@app.command()
+def ps(
+    ollama_url: str = typer.Option("http://127.0.0.1:11434", "--ollama-url", hidden=True),
+) -> None:
+    """Muestra los modelos cargados en VRAM ahora mismo."""
+    mgr = RuntimeManager(ollama_url=ollama_url)
+
+    if not mgr.ollama_available():
+        console.print("[yellow]Ollama no está disponible. ¿Está arrancado?[/yellow]")
+        console.print("  Ejecuta: [cyan]ollama serve[/cyan]")
+        raise typer.Exit()
+
+    loaded = mgr.list_loaded()
+    if not loaded:
+        console.print("[dim]No hay modelos cargados en VRAM.[/dim]")
+        raise typer.Exit()
+
+    table = Table(title="Modelos en VRAM")
+    table.add_column("Modelo")
+    table.add_column("Backend")
+    table.add_column("VRAM (GiB)", justify="right")
+    for m in loaded:
+        vram_str = f"{m.size_vram_gib}" if m.size_vram_gib else "—"
+        table.add_row(m.model_id, m.backend.value, vram_str)
+    console.print(table)
 
 
 @app.command()

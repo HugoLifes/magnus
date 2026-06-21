@@ -14,7 +14,7 @@ Estado: `Fase 0` entregada (esqueleto). `Fase 1` es el grueso del backend.
 - [x] tests de `core/` — 40 tests, cobertura de todos los módulos + CI (`.github/workflows/ci.yml`)
 
 ## Fase 1 — Backend funcional (lo ejecuta la IA, ver AGENT_HANDOFF)
-- [ ] Runtime manager: load/unload real (Ollama → vLLM) `[3.1]`
+- [x] Runtime manager: load/unload real (Ollama → vLLM) `[3.1]`
 - [ ] Chat + medidor de tokens/coste con WebSocket streaming `[3.2]`  ← diferenciador
 - [ ] Skills: crear/editar/hot-reload `[3.3]`
 - [ ] Memoria + mini-RAG local (sqlite-vec + embeddings locales) `[3.4]`

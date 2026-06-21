@@ -15,6 +15,7 @@ from core.compatibility import (
 from core.downloader import HFDownloadResult, download_model, hf_cli_available
 from core.hardware import GPU, HARDWARE_PRESETS, detect_gpus, resolve_target_vram_gb
 from core.model_registry import MODEL_REGISTRY, ModelSpec, get_model
+from core.runtime_manager import LoadedModel, RuntimeBackend, RuntimeManager, RuntimeManagerError
 from core.runtimes import Runtime, runtimes_for_quant
 
 __all__ = [
@@ -34,4 +35,8 @@ __all__ = [
     "get_model",
     "Runtime",
     "runtimes_for_quant",
+    "LoadedModel",
+    "RuntimeBackend",
+    "RuntimeManager",
+    "RuntimeManagerError",
 ]
