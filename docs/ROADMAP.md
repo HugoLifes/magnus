@@ -11,7 +11,7 @@ Estado: `Fase 0` entregada (esqueleto). `Fase 1` es el grueso del backend.
 - [x] `daemon/app.py` — API de solo lectura (`/health /hardware /models /compatibility`)
 - [x] `cli/main.py` — `hardware | models | check | quants | pull | serve`
 - [x] `deploy/` — Dockerfile + compose (`nim_magnus`)
-- [ ] tests de `core/` (siguiente: añadir cobertura y CI)
+- [x] tests de `core/` — 40 tests, cobertura de todos los módulos + CI (`.github/workflows/ci.yml`)
 
 ## Fase 1 — Backend funcional (lo ejecuta la IA, ver AGENT_HANDOFF)
 - [ ] Runtime manager: load/unload real (Ollama → vLLM) `[3.1]`

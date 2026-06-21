@@ -42,7 +42,8 @@ def hardware() -> None:
         console.print(f"Destinos preset disponibles: {', '.join(sorted(HARDWARE_PRESETS))}")
         raise typer.Exit()
     table = Table(title="GPUs detectadas")
-    table.add_column("#"); table.add_column("Nombre")
+    table.add_column("#")
+    table.add_column("Nombre")
     table.add_column("Total (GiB)", justify="right")
     table.add_column("Libre (GiB)", justify="right")
     for g in gpus:
@@ -54,8 +55,10 @@ def hardware() -> None:
 def models() -> None:
     """Lista los modelos del registro y sus dimensiones."""
     table = Table(title="Registro de modelos")
-    table.add_column("ID"); table.add_column("Params (B)", justify="right")
-    table.add_column("Capas", justify="right"); table.add_column("Ctx máx", justify="right")
+    table.add_column("ID")
+    table.add_column("Params (B)", justify="right")
+    table.add_column("Capas", justify="right")
+    table.add_column("Ctx máx", justify="right")
     table.add_column("Arquitectura")
     for spec in MODEL_REGISTRY.values():
         table.add_row(spec.id, f"{spec.params_b}", str(spec.n_layers),
@@ -114,9 +117,12 @@ def quants(
     rows = quant_matrix(spec, vram, context=context, batch=batch)
 
     table = Table(title=f"{spec.id} en {target} ({vram} GiB) — análisis de cuantizaciones")
-    table.add_column("Cuant"); table.add_column("VRAM req.", justify="right")
-    table.add_column("% destino", justify="right"); table.add_column("Margen", justify="right")
-    table.add_column("¿Entra?"); table.add_column("Runtimes")
+    table.add_column("Cuant")
+    table.add_column("VRAM req.", justify="right")
+    table.add_column("% destino", justify="right")
+    table.add_column("Margen", justify="right")
+    table.add_column("¿Entra?")
+    table.add_column("Runtimes")
     for r in rows:
         verdict = "[green]✓[/green]" if r.fits else "[red]✗[/red]"
         table.add_row(r.quant, f"{r.required_gib}", f"{r.utilization_pct}%",

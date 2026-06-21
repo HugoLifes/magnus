@@ -27,3 +27,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["core", "daemon", "cli"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
