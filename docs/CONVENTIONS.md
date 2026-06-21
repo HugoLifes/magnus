@@ -26,7 +26,8 @@
 - Cero telemetría saliente por defecto. Cualquier salida a red es **opt-in explícito**.
 
 ## Nombres y despliegue
-- Servicios/contenedores nombrados por lo que son: prefijo `magnus-`. No disfrazar cargas.
+- Convención de la organización: contenedores/servicios con prefijo **`nim_`** + nombre
+  del proyecto (este: `nim_magnus`).
 - Desplegar solo en servidores con autorización para correr cargas de trabajo.
 
 ## Git

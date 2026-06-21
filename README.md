@@ -94,16 +94,45 @@ pip install -e .
 
 # 2. Probar el núcleo SIN GPU (usando presets)
 magnus models
-magnus check llama-3.1-70b --target b200 --quant fp16
-magnus check qwen2.5-32b   --target dgx-spark --quant q4
+magnus check  llama-3.1-70b --target b200 --quant fp16
+magnus quants llama-3.1-70b --target b200          # analiza TODAS las cuantizaciones
 
 # 3. En la máquina con GPU
-magnus hardware            # lee la GPU real
-magnus serve               # levanta la API local en http://127.0.0.1:8420 (docs en /docs)
+magnus hardware                                    # lee la GPU real
+magnus pull meta-llama/Llama-3.1-8B                # descarga desde Hugging Face
+magnus serve                                       # API local en http://127.0.0.1:8420 (/docs)
 
 # 4. Despliegue en servidor (Docker + NVIDIA Container Toolkit)
-docker compose -f deploy/docker-compose.yml up -d --build
+docker compose -f deploy/docker-compose.yml up -d --build   # contenedor nim_magnus
 ```
+
+## 5.1 Adquisición de modelos (Hugging Face) y análisis de cuantizaciones
+
+Magnus integra la **CLI de Hugging Face** para traer pesos directamente al servidor
+(`core/downloader.py`). No reimplementa la descarga: envuelve `hf download`.
+
+```bash
+# Descargar un repo completo, o solo una cuantización concreta con --include
+magnus pull Qwen/Qwen2.5-32B-Instruct
+magnus pull bartowski/Qwen2.5-32B-Instruct-GGUF --include "*Q4_K_M*.gguf"
+magnus pull meta-llama/Llama-3.1-8B --dry-run     # muestra el comando sin descargar
+```
+> Repos privados/gated: `hf auth login` (o exporta `HF_TOKEN`) antes. Magnus no guarda credenciales.
+
+Y para **darle alcance al CLI sobre cuantizaciones**, `magnus quants` cruza el modelo con el
+destino y dice qué formatos entran y en qué runtime:
+
+```
+$ magnus quants llama-3.1-70b --target b200
+ Cuant  VRAM req.  % destino  Margen  ¿Entra?  Runtimes
+ fp16    161.8       84.3%     30.2     ✓       vllm, trtllm
+ fp8      91.0       47.4%    101.0     ✓       vllm, trtllm
+ q8       91.0       47.4%    101.0     ✓       ollama, vllm
+ q6       70.6       36.8%    121.4     ✓       ollama
+ q4       50.3       26.2%    141.7     ✓       ollama, vllm, trtllm
+```
+> Que una cuant "entre" no garantiza que exista un repo prequantizado: revisa en HF o baja el
+> formato concreto con `magnus pull --include`.
 
 ## 6. Estructura del repositorio
 
@@ -112,13 +141,14 @@ magnus/
 ├── core/                 # Lógica pura, sin framework, testeable sin GPU
 │   ├── hardware.py       #   detección de GPU + presets de destino (b200, spark…)
 │   ├── model_registry.py #   metadatos de modelos (params, capas, GQA, contexto)
-│   ├── compatibility.py  #   ¿cabe el modelo? — cálculo de VRAM y recomendación
+│   ├── compatibility.py  #   ¿cabe el modelo? — VRAM, recomendación y matriz de cuants
+│   ├── downloader.py     #   descarga de modelos vía CLI de Hugging Face
 │   └── runtimes.py       #   abstracción ollama / vLLM / TensorRT-LLM
 ├── daemon/               # API local (FastAPI) — contrato único de todos los clientes
 │   └── app.py            #   /health /hardware /models /compatibility (+ futuros)
 ├── cli/                  # CLI (Typer) — cliente delgado sobre core
-│   └── main.py           #   magnus hardware | models | check | serve
-├── deploy/               # Dockerfile + docker-compose (contenedor "magnus-daemon")
+│   └── main.py           #   magnus hardware | models | check | quants | pull | serve
+├── deploy/               # Dockerfile + docker-compose (contenedor "nim_magnus")
 ├── docs/                 # Especificación profunda (handoff para la IA ejecutora)
 │   ├── AGENT_HANDOFF.md  #   ← EMPIEZA AQUÍ si vas a ejecutar el backend
 │   ├── ARCHITECTURE.md
@@ -158,8 +188,7 @@ Detalle por tarea en [`docs/ROADMAP.md`](docs/ROADMAP.md).
 - **Frontend (Flutter, escritorio y móvil):** se desarrolla en otra sesión, consumiendo la API
   local del daemon. No empieza hasta que la Fase 1 estabilice el contrato de la API.
 
-## 10. Nota de uso responsable
+## 10. Convención de despliegue
 
-Magnus se despliega con nombres transparentes (`magnus-daemon`). Ejecútalo **solo en servidores
-donde tengas autorización** para correr cargas de trabajo. No está pensado para ocultarse de
-quien administra una máquina.
+El contenedor se llama **`nim_magnus`**, siguiendo la convención de la organización
+(`nim_` + nombre del proyecto). Desplegar solo en **servidores autorizados**.

@@ -20,7 +20,10 @@ from core import (
     HARDWARE_PRESETS,
     check_fit,
     detect_gpus,
+    download_model,
     get_model,
+    hf_cli_available,
+    quant_matrix,
     recommend_quant,
     resolve_target_vram_gb,
 )
@@ -95,6 +98,59 @@ def check(
                           f"({rec.required_gib} GiB, margen {rec.headroom_gib} GiB).[/cyan]")
         else:
             console.print("[red]→ No entra ni con q4. Necesita multi-GPU o un destino mayor.[/red]")
+
+
+@app.command()
+def quants(
+    model: str = typer.Argument(..., help="ID del modelo (ver `magnus models`)."),
+    target: str = typer.Option("auto", "--target", "-t",
+                               help="Destino: preset (b200, dgx-spark...), GiB, o 'auto'."),
+    context: int = typer.Option(None, "--context", "-c", help="Tokens de contexto."),
+    batch: int = typer.Option(1, "--batch", "-b", help="Peticiones concurrentes."),
+) -> None:
+    """Analiza TODAS las cuantizaciones de un modelo en un destino: cuáles entran."""
+    spec = get_model(model)
+    vram = resolve_target_vram_gb(target)
+    rows = quant_matrix(spec, vram, context=context, batch=batch)
+
+    table = Table(title=f"{spec.id} en {target} ({vram} GiB) — análisis de cuantizaciones")
+    table.add_column("Cuant"); table.add_column("VRAM req.", justify="right")
+    table.add_column("% destino", justify="right"); table.add_column("Margen", justify="right")
+    table.add_column("¿Entra?"); table.add_column("Runtimes")
+    for r in rows:
+        verdict = "[green]✓[/green]" if r.fits else "[red]✗[/red]"
+        table.add_row(r.quant, f"{r.required_gib}", f"{r.utilization_pct}%",
+                      f"{r.headroom_gib}", verdict,
+                      ", ".join(rt.value for rt in r.runtimes) or "—")
+    console.print(table)
+    console.print("[dim]Nota: que una cuant 'entre' no garantiza que exista un repo prequantizado; "
+                  "revisa en HF o descarga el formato concreto con `magnus pull`.[/dim]")
+
+
+@app.command()
+def pull(
+    repo: str = typer.Argument(..., help="Repo de HF, p. ej. 'meta-llama/Llama-3.1-8B'."),
+    revision: str = typer.Option(None, "--revision", "-r", help="Rama/tag/commit."),
+    include: list[str] = typer.Option(None, "--include", "-i",
+                                      help="Patrón(es) de archivo, p. ej. '*Q4_K_M*.gguf'."),
+    models_dir: str = typer.Option("models", "--dir", help="Carpeta destino."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Muestra el comando sin descargar."),
+) -> None:
+    """Descarga un modelo desde Hugging Face (envuelve la CLI de HF)."""
+    cli = hf_cli_available()
+    if cli is None and not dry_run:
+        console.print("[red]No se encontró la CLI de Hugging Face.[/red] "
+                      "Instala con: [cyan]pip install -U huggingface_hub[cli][/cyan]")
+        console.print("[dim]Para repos privados/gated: `hf auth login` o exporta HF_TOKEN.[/dim]")
+        raise typer.Exit(code=1)
+
+    res = download_model(repo, models_dir=models_dir, revision=revision,
+                         allow_patterns=include, dry_run=dry_run)
+    color = "green" if res.ok else "red"
+    if dry_run:
+        console.print(f"[cyan]Comando:[/cyan] {res.message}")
+    else:
+        console.print(f"[{color}]{res.message}[/{color}]")
 
 
 @app.command()

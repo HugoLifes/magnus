@@ -22,8 +22,8 @@ El desarrollo del núcleo se puede hacer sin GPU usando los presets de `core/har
    existente: solo con versión nueva y nota en el PR.
 5. **Local-first y privacidad.** Nada de telemetría que mande datos del usuario fuera. Si una
    feature requiere salir a la red (p. ej. fallback a nube), es **opt-in explícito**.
-6. **Nombres transparentes.** Servicios y contenedores se nombran por lo que son (`magnus-*`).
-   No disfraces cargas de trabajo. Despliega solo en servidores autorizados.
+6. **Convención de nombres.** Contenedores/servicios con prefijo `nim_` + nombre del proyecto
+   (convención de la organización): este es `nim_magnus`. Despliega solo en servidores autorizados.
 7. **Convenciones de estilo:** ver [`CONVENTIONS.md`](CONVENTIONS.md). Español en docs y
    mensajes de usuario; inglés en identificadores de código.
 
@@ -32,10 +32,12 @@ El desarrollo del núcleo se puede hacer sin GPU usando los presets de `core/har
 - `core/hardware.py` — detección de GPU + presets de destino.
 - `core/model_registry.py` — metadatos de modelos para el cálculo de memoria.
 - `core/compatibility.py` — estimación de VRAM + veredicto + recomendación de cuantización.
+- `core/compatibility.py` — incluye `quant_matrix()` (analiza todas las cuantizaciones).
+- `core/downloader.py` — descarga de modelos envolviendo la CLI de Hugging Face.
 - `core/runtimes.py` — abstracción de runtimes y soporte de cuantizaciones.
 - `daemon/app.py` — endpoints de solo lectura: `/health /hardware /models /compatibility`.
-- `cli/main.py` — `magnus hardware | models | check | serve`.
-- `deploy/` — Dockerfile + compose (`magnus-daemon`).
+- `cli/main.py` — `magnus hardware | models | check | quants | pull | serve`.
+- `deploy/` — Dockerfile + compose (`nim_magnus`).
 
 ## 3. Qué construir (Fase 1) — en orden
 
@@ -76,6 +78,13 @@ Cada bloque: implementación en `core/`, endpoints en `daemon/`, comando en `cli
   herramientas, límites de tokens/coste.
 - `core/agent.py`: loop de agente (modelo ↔ herramientas) reutilizando skills, memoria y medidor.
 - API: `POST /agents/{name}/run`. CLI: `magnus agent run <name>`.
+
+### 3.6 Auto-registro de modelos desde Hugging Face
+- Hoy `model_registry` es manual. Tras `magnus pull`, leer el `config.json` del repo y poblar un
+  `ModelSpec` automáticamente (n_layers, hidden, n_heads, n_kv_heads, context). Mapear nombres de
+  campo según arquitectura (llama/qwen/mistral/mixtral). Así `check`/`quants` funcionan con
+  cualquier modelo descargado, no solo los del registro embebido.
+- Exponer además `pull` y `quants` por la API del daemon para que los clientes Flutter los usen.
 
 ## 4. Cómo verificar tu trabajo
 

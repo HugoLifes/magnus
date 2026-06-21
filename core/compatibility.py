@@ -147,3 +147,17 @@ def recommend_quant(
         if res.fits and res.headroom_gib >= available_gib * min_headroom_pct:
             return res
     return None
+
+
+def quant_matrix(
+    spec: ModelSpec,
+    available_gib: float,
+    context: int | None = None,
+    batch: int = 1,
+) -> list[CompatibilityResult]:
+    """Analiza TODAS las cuantizaciones soportadas en un destino.
+
+    Devuelve un resultado por cada cuant de `QUANT_PREFERENCE`, de mayor a menor
+    calidad, para responder "¿qué cuantizaciones acepta este modelo aquí?".
+    """
+    return [check_fit(spec, available_gib, q, context, batch) for q in QUANT_PREFERENCE]

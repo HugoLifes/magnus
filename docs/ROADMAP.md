@@ -5,12 +5,13 @@ Estado: `Fase 0` entregada (esqueleto). `Fase 1` es el grueso del backend.
 ## Fase 0 — Núcleo + esqueleto  ✅ (este commit)
 - [x] `core/hardware.py` — detección de GPU + presets de destino
 - [x] `core/model_registry.py` — metadatos de modelos
-- [x] `core/compatibility.py` — cálculo de VRAM, veredicto, recomendación de cuant
+- [x] `core/compatibility.py` — cálculo de VRAM, veredicto, recomendación + matriz de cuants
+- [x] `core/downloader.py` — descarga de modelos vía CLI de Hugging Face
 - [x] `core/runtimes.py` — abstracción de runtimes
 - [x] `daemon/app.py` — API de solo lectura (`/health /hardware /models /compatibility`)
-- [x] `cli/main.py` — `hardware | models | check | serve`
-- [x] `deploy/` — Dockerfile + compose (`magnus-daemon`)
-- [ ] tests de `core/` (siguiente: añadir `tests/` y CI)
+- [x] `cli/main.py` — `hardware | models | check | quants | pull | serve`
+- [x] `deploy/` — Dockerfile + compose (`nim_magnus`)
+- [ ] tests de `core/` (siguiente: añadir cobertura y CI)
 
 ## Fase 1 — Backend funcional (lo ejecuta la IA, ver AGENT_HANDOFF)
 - [ ] Runtime manager: load/unload real (Ollama → vLLM) `[3.1]`
@@ -18,6 +19,9 @@ Estado: `Fase 0` entregada (esqueleto). `Fase 1` es el grueso del backend.
 - [ ] Skills: crear/editar/hot-reload `[3.3]`
 - [ ] Memoria + mini-RAG local (sqlite-vec + embeddings locales) `[3.4]`
 - [ ] Runtime de agentes declarativo (YAML) `[3.5]`
+- [ ] Auto-registro de modelos desde HF: leer `config.json` del repo descargado y poblar
+      `model_registry` automáticamente (hoy el registro es manual) `[3.6]`
+- [ ] Exponer `pull` y `quants` también por la API del daemon (para los clientes Flutter)
 - [ ] Congelar y documentar el contrato de la API (OpenAPI)
 
 ## Fase 2 — Cliente Flutter de escritorio (otra sesión)

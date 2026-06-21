@@ -1,18 +1,17 @@
 # Despliegue del daemon de Magnus en un host con GPU NVIDIA.
 #
-# El nombre es transparente a propósito: "magnus-daemon". Magnus es una carga de
-# trabajo legítima y nombrada con claridad; no se disfraza de otro servicio.
-# Ejecutar solo en servidores donde se tenga autorización para correr cargas.
+# Nombre del contenedor: "nim_magnus", según la convención de la organización
+# ("nim_" + nombre del proyecto). Ejecutar solo en servidores autorizados.
 #
 # Requisitos del host: Docker + NVIDIA Container Toolkit (para --gpus).
 # Uso:  docker compose -f deploy/docker-compose.yml up -d --build
 
 services:
-  magnus-daemon:
+  nim_magnus:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
-    container_name: magnus-daemon
+    container_name: nim_magnus
     restart: unless-stopped
     # Por defecto se publica SOLO en loopback. Para que los clientes Flutter de
     # la red lleguen, cambia a "8420:8420" y protege con auth + firewall.
