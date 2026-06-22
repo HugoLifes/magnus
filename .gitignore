@@ -28,3 +28,6 @@ magnus.db
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Agent skills (referencia local, no parte del producto)
+.agents/

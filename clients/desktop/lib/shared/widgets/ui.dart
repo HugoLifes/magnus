@@ -6,8 +6,9 @@ import '../../core/theme/magnus_theme.dart';
 
 /// Tarjeta base de Magnus. En temas con `glass` aplica desenfoque (frosted
 /// glass) sobre un relleno translúcido; si no, usa una superficie opaca con
-/// sombra suave. Es el contenedor que da identidad por tema.
-class GlassCard extends StatelessWidget {
+/// sombra suave. Es el contenedor que da identidad por tema. Cuando es
+/// interactiva (`onTap`), resalta sutilmente al pasar el cursor (escritorio).
+class GlassCard extends StatefulWidget {
   const GlassCard({
     super.key,
     required this.child,
@@ -26,42 +27,58 @@ class GlassCard extends StatelessWidget {
   final bool accentBorder;
 
   @override
+  State<GlassCard> createState() => _GlassCardState();
+}
+
+class _GlassCardState extends State<GlassCard> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
     final t = MagnusTheme.of(context);
+    final interactive = widget.onTap != null;
     final radius = BorderRadius.circular(t.radiusLg);
-    final fill = strong ? t.surfaceStrong : t.surface;
-    final borderColor = selected || accentBorder
+    final fill = widget.strong ? t.surfaceStrong : t.surface;
+    final highlight = interactive && _hover;
+    final borderColor = widget.selected || widget.accentBorder || highlight
         ? t.accent
-        : (strong ? t.strokeStrong : t.stroke);
+        : (widget.strong ? t.strokeStrong : t.stroke);
 
-    Widget content = Container(
-      padding: padding,
+    Widget content = AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      padding: widget.padding,
       decoration: BoxDecoration(
         color: fill,
         borderRadius: radius,
         border: Border.all(
-            color: borderColor, width: selected || accentBorder ? 1.4 : 1),
+            color: borderColor,
+            width: widget.selected || widget.accentBorder || highlight ? 1.4 : 1),
         boxShadow: t.glass ? null : t.shadow,
       ),
-      child: child,
+      child: widget.child,
     );
 
     if (t.glass) {
       content = DecoratedBox(
-        decoration:
-            BoxDecoration(borderRadius: radius, boxShadow: t.shadow),
+        decoration: BoxDecoration(borderRadius: radius, boxShadow: t.shadow),
         child: ClipRRect(
           borderRadius: radius,
           child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: t.blurSigma, sigmaY: t.blurSigma),
+            filter:
+                ui.ImageFilter.blur(sigmaX: t.blurSigma, sigmaY: t.blurSigma),
             child: content,
           ),
         ),
       );
     }
 
-    if (onTap != null) {
-      content = _Pressable(onTap: onTap!, child: content);
+    if (interactive) {
+      content = MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: _Pressable(onTap: widget.onTap!, child: content),
+      );
     }
     return content;
   }
