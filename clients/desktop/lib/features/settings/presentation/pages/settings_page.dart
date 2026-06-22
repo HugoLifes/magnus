@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart'
-    show Material, Colors, TextField, InputDecoration, OutlineInputBorder;
+    show Material, Colors, TextField, InputDecoration, OutlineInputBorder, Switch;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -131,6 +131,36 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                               ),
                             ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Container(height: 1, color: t.stroke),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Color de acento del sistema',
+                                    style: t.body
+                                        .copyWith(fontWeight: FontWeight.w600)),
+                                Text(
+                                    'Usa el acento de tu SO (Material You / Fluent).',
+                                    style: t.small),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: state.useSystemAccent,
+                            activeThumbColor: t.onAccent,
+                            activeTrackColor: t.accent,
+                            inactiveThumbColor: t.textMuted,
+                            inactiveTrackColor: t.surfaceAlt,
+                            onChanged: (v) => context
+                                .read<SettingsCubit>()
+                                .setUseSystemAccent(v),
+                          ),
                         ],
                       ),
                     ],

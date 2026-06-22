@@ -46,7 +46,10 @@ const magnusDestinations = <NavDest>[
 /// Raíz de la app. Provee los BLoC por encima del *App y elige el shell según
 /// el diseño elegido. Reconstruye al cambiar diseño o apariencia.
 class MagnusApp extends StatelessWidget {
-  const MagnusApp({super.key});
+  const MagnusApp({super.key, this.systemAccent});
+
+  /// Acento del sistema operativo (si está disponible), para M3/Fluent.
+  final Color? systemAccent;
 
   @override
   Widget build(BuildContext context) {
@@ -61,16 +64,19 @@ class MagnusApp extends StatelessWidget {
         buildWhen: (a, b) =>
             a.design != b.design ||
             a.appearance != b.appearance ||
-            a.fontFamily != b.fontFamily,
+            a.fontFamily != b.fontFamily ||
+            a.useSystemAccent != b.useSystemAccent,
         builder: (context, state) {
           final appearance = state.appearance;
           final font = state.fontFamily;
+          final accent = state.useSystemAccent ? systemAccent : null;
           return switch (state.design) {
             DesignSystem.windows =>
-              WindowsShell(appearance: appearance, font: font),
+              WindowsShell(appearance: appearance, font: font, accent: accent),
             DesignSystem.material =>
-              MaterialShell(appearance: appearance, font: font),
-            DesignSystem.apple => AppleShell(appearance: appearance, font: font),
+              MaterialShell(appearance: appearance, font: font, accent: accent),
+            DesignSystem.apple =>
+              AppleShell(appearance: appearance, font: font, accent: accent),
           };
         },
       ),
@@ -79,9 +85,10 @@ class MagnusApp extends StatelessWidget {
 }
 
 /// Helper para que cada shell envuelva la página activa con el [MagnusTheme]
-/// correspondiente a su diseño, apariencia y fuente.
-Widget themedPage(
-    DesignSystem design, Appearance appearance, String font, int index) {
-  return MagnusTheme.forDesign(design, appearance.brightness, font: font)
+/// correspondiente a su diseño, apariencia, fuente y acento.
+Widget themedPage(DesignSystem design, Appearance appearance, String font,
+    Color? accent, int index) {
+  return MagnusTheme.forDesign(design, appearance.brightness,
+          font: font, accent: accent)
       .provide(child: magnusPage(index));
 }

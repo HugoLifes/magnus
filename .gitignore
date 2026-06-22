@@ -31,3 +31,4 @@ Thumbs.db
 
 # Agent skills (referencia local, no parte del producto)
 .agents/
+COMMIT_MSG.tmp

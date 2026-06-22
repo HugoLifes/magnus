@@ -9,9 +9,15 @@ import '../widgets/shell_chrome.dart';
 /// Shell de diseño Apple (escritorio): macos_ui con MacosWindow + Sidebar.
 /// La sidebar de macos_ui es colapsable y responsive por defecto.
 class AppleShell extends StatefulWidget {
-  const AppleShell({super.key, required this.appearance, required this.font});
+  const AppleShell({
+    super.key,
+    required this.appearance,
+    required this.font,
+    this.accent,
+  });
   final Appearance appearance;
   final String font;
+  final Color? accent;
 
   @override
   State<AppleShell> createState() => _AppleShellState();
@@ -24,7 +30,7 @@ class _AppleShellState extends State<AppleShell> {
   Widget build(BuildContext context) {
     final t = MagnusTheme.forDesign(
         DesignSystem.apple, widget.appearance.brightness,
-        font: widget.font);
+        font: widget.font, accent: widget.accent);
     final macTheme = t.isDark ? MacosThemeData.dark() : MacosThemeData.light();
 
     return MacosApp(
@@ -60,8 +66,8 @@ class _AppleShellState extends State<AppleShell> {
             ContentArea(
               builder: (context, scrollController) => DecoratedBox(
                 decoration: BoxDecoration(gradient: shellBackdrop(t)),
-                child: themedPage(
-                    DesignSystem.apple, widget.appearance, widget.font, _index),
+                child: themedPage(DesignSystem.apple, widget.appearance,
+                    widget.font, widget.accent, _index),
               ),
             ),
           ],

@@ -9,9 +9,15 @@ import '../widgets/shell_chrome.dart';
 /// Shell de diseño Android: Material 3 (Material You) + NavigationRail.
 /// El rail muestra etiquetas en pantallas anchas y solo iconos al achicar.
 class MaterialShell extends StatefulWidget {
-  const MaterialShell({super.key, required this.appearance, required this.font});
+  const MaterialShell({
+    super.key,
+    required this.appearance,
+    required this.font,
+    this.accent,
+  });
   final Appearance appearance;
   final String font;
+  final Color? accent;
 
   @override
   State<MaterialShell> createState() => _MaterialShellState();
@@ -24,13 +30,13 @@ class _MaterialShellState extends State<MaterialShell> {
   Widget build(BuildContext context) {
     final t = MagnusTheme.forDesign(
         DesignSystem.material, widget.appearance.brightness,
-        font: widget.font);
+        font: widget.font, accent: widget.accent);
 
     return MaterialApp(
       title: 'Magnus',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF6750A4),
+        colorSchemeSeed: widget.accent ?? const Color(0xFF6750A4),
         useMaterial3: true,
         brightness: widget.appearance.brightness,
         scaffoldBackgroundColor: t.bg,
@@ -56,7 +62,7 @@ class _MaterialShellState extends State<MaterialShell> {
                       onSelect: (i) => setState(() => _index = i)),
                   Expanded(
                     child: themedPage(DesignSystem.material, widget.appearance,
-                        widget.font, _index),
+                        widget.font, widget.accent, _index),
                   ),
                 ],
               ),

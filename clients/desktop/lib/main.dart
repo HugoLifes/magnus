@@ -1,3 +1,4 @@
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:window_manager/window_manager.dart';
@@ -37,5 +38,13 @@ Future<void> main() async {
     await windowManager.focus();
   });
 
-  runApp(const MagnusApp());
+  // Color de acento del sistema (M3 dynamic color / Fluent "Personal").
+  Color? systemAccent;
+  try {
+    systemAccent = await DynamicColorPlugin.getAccentColor();
+  } catch (_) {
+    systemAccent = null; // sin soporte: se usa el morado de Magnus
+  }
+
+  runApp(MagnusApp(systemAccent: systemAccent));
 }

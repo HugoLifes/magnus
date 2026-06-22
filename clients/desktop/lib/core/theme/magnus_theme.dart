@@ -124,8 +124,19 @@ class MagnusTheme {
     DesignSystem design,
     Brightness b, {
     String font = 'Plus Jakarta Sans',
+    Color? accent, // acento del sistema (M3 dynamic / Fluent personal)
   }) {
     final dark = b == Brightness.dark;
+    final hasA = accent != null;
+    // Derivados del acento override (si lo hay).
+    final aSoft = hasA
+        ? accent.withValues(alpha: dark ? 0.30 : 0.14)
+        : null;
+    final aOn = hasA
+        ? (accent.computeLuminance() > 0.55
+            ? const Color(0xFF101018)
+            : const Color(0xFFFFFFFF))
+        : null;
     switch (design) {
       // ---------------- WINDOWS — glassmorphism (Acrylic/Mica) -------------
       case DesignSystem.windows:
@@ -142,9 +153,9 @@ class MagnusTheme {
           surfaceAlt: dark ? const Color(0x0AFFFFFF) : const Color(0x0A1A1730),
           stroke: dark ? const Color(0x24FFFFFF) : const Color(0x14101030),
           strokeStrong: dark ? const Color(0x4DFFFFFF) : const Color(0x26101030),
-          accent: dark ? const Color(0xFF8B7BFF) : const Color(0xFF5A4FCF),
-          accentSoft: dark ? const Color(0x308B7BFF) : const Color(0x1A5A4FCF),
-          onAccent: const Color(0xFFFFFFFF),
+          accent: accent ?? (dark ? const Color(0xFF8B7BFF) : const Color(0xFF5A4FCF)),
+          accentSoft: aSoft ?? (dark ? const Color(0x308B7BFF) : const Color(0x1A5A4FCF)),
+          onAccent: aOn ?? const Color(0xFFFFFFFF),
           ok: const Color(0xFF34D399),
           warn: const Color(0xFFFBBF24),
           bad: const Color(0xFFFB6F92),
@@ -180,9 +191,9 @@ class MagnusTheme {
           surfaceAlt: dark ? const Color(0xFF211F26) : const Color(0xFFECE6F0),
           stroke: dark ? const Color(0x1FFFFFFF) : const Color(0x14000000),
           strokeStrong: dark ? const Color(0x3DFFFFFF) : const Color(0x24000000),
-          accent: dark ? const Color(0xFFD0BCFF) : const Color(0xFF6750A4),
-          accentSoft: dark ? const Color(0x3D6750A4) : const Color(0x166750A4),
-          onAccent: dark ? const Color(0xFF381E72) : const Color(0xFFFFFFFF),
+          accent: accent ?? (dark ? const Color(0xFFD0BCFF) : const Color(0xFF6750A4)),
+          accentSoft: aSoft ?? (dark ? const Color(0x3D6750A4) : const Color(0x166750A4)),
+          onAccent: aOn ?? (dark ? const Color(0xFF381E72) : const Color(0xFFFFFFFF)),
           ok: const Color(0xFF4CAF94),
           warn: const Color(0xFFE0A100),
           bad: const Color(0xFFE5484D),
@@ -217,9 +228,9 @@ class MagnusTheme {
           surfaceAlt: dark ? const Color(0x0DFFFFFF) : const Color(0x0F000000),
           stroke: dark ? const Color(0x1AFFFFFF) : const Color(0x14000000),
           strokeStrong: dark ? const Color(0x33FFFFFF) : const Color(0x26000000),
-          accent: dark ? const Color(0xFF8E7BFF) : const Color(0xFF6E56CF),
-          accentSoft: dark ? const Color(0x268E7BFF) : const Color(0x176E56CF),
-          onAccent: const Color(0xFFFFFFFF),
+          accent: accent ?? (dark ? const Color(0xFF8E7BFF) : const Color(0xFF6E56CF)),
+          accentSoft: aSoft ?? (dark ? const Color(0x268E7BFF) : const Color(0x176E56CF)),
+          onAccent: aOn ?? const Color(0xFFFFFFFF),
           ok: const Color(0xFF30D158),
           warn: const Color(0xFFFFD60A),
           bad: const Color(0xFFFF6482),

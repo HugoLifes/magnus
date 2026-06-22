@@ -42,6 +42,7 @@ dependencies:
 
   # --- Persistencia ligera ---
   shared_preferences: ^2.3.2  # recordar diseño elegido y URL del daemon
+  dynamic_color: ^1.8.1
 
 dev_dependencies:
   flutter_lints: ^4.0.0

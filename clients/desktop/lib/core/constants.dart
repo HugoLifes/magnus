@@ -27,6 +27,7 @@ class AppConstants {
   static const String prefDaemonUrl = 'daemon_url';
   static const String prefAppearance = 'appearance';
   static const String prefFont = 'font_family';
+  static const String prefUseSystemAccent = 'use_system_accent';
 
   /// Fuente por defecto (misma en los 3 diseños) y opciones ofrecidas en Ajustes.
   static const String defaultFont = 'Plus Jakarta Sans';
