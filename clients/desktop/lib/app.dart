@@ -1,11 +1,16 @@
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'core/di/injector.dart';
 import 'core/theme/design_system.dart';
+import 'core/theme/magnus_theme.dart';
 import 'features/models/presentation/bloc/models_bloc.dart';
 import 'features/models/presentation/pages/dashboard_page.dart';
 import 'features/models/presentation/pages/models_page.dart';
+import 'features/chat/presentation/pages/chat_page.dart';
+import 'features/rag/presentation/pages/rag_page.dart';
+import 'features/resources/presentation/pages/resources_page.dart';
 import 'features/settings/presentation/cubit/settings_cubit.dart';
 import 'features/settings/presentation/pages/settings_page.dart';
 import 'shell/apple/apple_shell.dart';
@@ -16,26 +21,30 @@ import 'shell/windows/windows_shell.dart';
 class NavDest {
   const NavDest(this.label, this.icon);
   final String label;
-  // IconData de MaterialIcons (incluida por `uses-material-design: true`),
-  // estable entre los tres shells.
-  final IconData icon;
+  final IconData icon; // IconData de MaterialIcons, estable entre shells.
 }
 
 /// Páginas, indexadas igual que [magnusDestinations].
 Widget magnusPage(int index) => switch (index) {
       0 => const DashboardPage(),
-      1 => const ModelsPage(),
+      1 => const ChatPage(),
+      2 => const ModelsPage(),
+      3 => const RagPage(),
+      4 => const ResourcesPage(),
       _ => const SettingsPage(),
     };
 
 const magnusDestinations = <NavDest>[
-  NavDest('Inicio', IconData(0xe1af, fontFamily: 'MaterialIcons')), // space_dashboard
-  NavDest('Modelos', IconData(0xe322, fontFamily: 'MaterialIcons')), // memory
-  NavDest('Ajustes', IconData(0xe57f, fontFamily: 'MaterialIcons')), // settings
+  NavDest('Inicio', Icons.space_dashboard_rounded),
+  NavDest('Chat', Icons.forum_rounded),
+  NavDest('Modelos', Icons.memory_rounded),
+  NavDest('RAG', Icons.hub_rounded),
+  NavDest('Recursos', Icons.monitor_heart_rounded),
+  NavDest('Ajustes', Icons.settings_rounded),
 ];
 
 /// Raíz de la app. Provee los BLoC por encima del *App y elige el shell según
-/// el diseño seleccionado. Cambiar de diseño re-renderiza todo el árbol.
+/// el diseño elegido. Reconstruye al cambiar diseño o apariencia.
 class MagnusApp extends StatelessWidget {
   const MagnusApp({super.key});
 
@@ -49,13 +58,24 @@ class MagnusApp extends StatelessWidget {
         ),
       ],
       child: BlocBuilder<SettingsCubit, SettingsState>(
-        buildWhen: (a, b) => a.design != b.design,
-        builder: (context, state) => switch (state.design) {
-          DesignSystem.windows => const WindowsShell(),
-          DesignSystem.material => const MaterialShell(),
-          DesignSystem.apple => const AppleShell(),
+        buildWhen: (a, b) =>
+            a.design != b.design || a.appearance != b.appearance,
+        builder: (context, state) {
+          final appearance = state.appearance;
+          return switch (state.design) {
+            DesignSystem.windows => WindowsShell(appearance: appearance),
+            DesignSystem.material => MaterialShell(appearance: appearance),
+            DesignSystem.apple => AppleShell(appearance: appearance),
+          };
         },
       ),
     );
   }
+}
+
+/// Helper para que cada shell envuelva la página activa con el [MagnusTheme]
+/// correspondiente a su diseño y apariencia.
+Widget themedPage(DesignSystem design, Appearance appearance, int index) {
+  return MagnusTheme.forDesign(design, appearance.brightness)
+      .provide(child: magnusPage(index));
 }

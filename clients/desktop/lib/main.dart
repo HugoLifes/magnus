@@ -15,6 +15,17 @@ Future<void> main() async {
   // Ventana nativa: tamaño mínimo para que el entorno se ajuste bien al achicar.
   await windowManager.ensureInitialized();
   await Window.initialize(); // flutter_acrylic
+  // Fondo translúcido nativo (glassmorphism) para el diseño Windows.
+  // Si el SO no lo soporta, los shells siguen pintando su propio fondo.
+  try {
+    await Window.setEffect(
+      effect: WindowEffect.acrylic,
+      color: const Color(0xCC0D0A18),
+      dark: true,
+    );
+  } catch (_) {
+    // sin soporte de efecto: continuar con fondo opaco del shell
+  }
   const options = WindowOptions(
     size: Size(1180, 760),
     minimumSize: Size(AppConstants.minWindowWidth, AppConstants.minWindowHeight),

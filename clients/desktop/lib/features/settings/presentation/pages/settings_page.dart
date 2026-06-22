@@ -1,12 +1,14 @@
-import 'package:flutter/material.dart' show Material, Colors, TextField, InputDecoration, OutlineInputBorder;
+import 'package:flutter/material.dart'
+    show Material, Colors, TextField, InputDecoration, OutlineInputBorder, Icons;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/design_system.dart';
-import '../../../models/presentation/widgets/ui_tokens.dart';
+import '../../../../core/theme/magnus_theme.dart';
+import '../../../../shared/widgets/ui.dart';
 import '../cubit/settings_cubit.dart';
 
-/// Ajustes: elegir entre los 3 diseños nativos y configurar la URL del daemon.
+/// Ajustes: diseño nativo, apariencia (claro/oscuro) y URL del daemon.
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
   @override
@@ -19,7 +21,8 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    _urlCtrl = TextEditingController(text: context.read<SettingsCubit>().state.daemonUrl);
+    _urlCtrl =
+        TextEditingController(text: context.read<SettingsCubit>().state.daemonUrl);
   }
 
   @override
@@ -30,104 +33,247 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Material transparente: habilita inputs Material dentro de cualquier shell.
+    final t = MagnusTheme.of(context);
     return Material(
       color: Colors.transparent,
-      child: BlocBuilder<SettingsCubit, SettingsState>(
-        builder: (context, state) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
+      child: PageScaffold(
+        child: BlocBuilder<SettingsCubit, SettingsState>(
+          builder: (context, state) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Ajustes', style: T.h1),
-                const SizedBox(height: 24),
-                const Text('Diseño', style: T.h2),
-                const SizedBox(height: 4),
-                const Text('Elige el sistema de diseño nativo. Se aplica al instante.', style: T.small),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    for (final d in DesignSystem.values)
-                      _DesignOption(
-                        design: d,
-                        selected: state.design == d,
-                        onTap: () => context.read<SettingsCubit>().setDesign(d),
-                      ),
-                  ],
+                const SectionHeader(
+                  icon: Icons.settings_rounded,
+                  title: 'Ajustes',
+                  subtitle: 'Diseño, apariencia y conexión al daemon.',
                 ),
-                const SizedBox(height: 28),
-                const Text('Daemon', style: T.h2),
-                const SizedBox(height: 4),
-                const Text('URL de la API local de Magnus.', style: T.small),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: 380,
-                  child: TextField(
-                    controller: _urlCtrl,
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      border: OutlineInputBorder(),
-                      hintText: 'http://127.0.0.1:8420',
-                    ),
-                    onSubmitted: (v) => context.read<SettingsCubit>().setDaemonUrl(v),
+
+                // --- Diseño ---
+                GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Sistema de diseño', style: t.h2),
+                      const SizedBox(height: 4),
+                      Text('Se aplica al instante, sin reiniciar.', style: t.small),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          for (final d in DesignSystem.values)
+                            _DesignOption(
+                              design: d,
+                              selected: state.design == d,
+                              onTap: () =>
+                                  context.read<SettingsCubit>().setDesign(d),
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () => context.read<SettingsCubit>().setDaemonUrl(_urlCtrl.text),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(color: T.accent, borderRadius: BorderRadius.circular(8)),
-                    child: const Text('Guardar', style: TextStyle(color: Color(0xFFFFFFFF), fontWeight: FontWeight.w600)),
+                const SizedBox(height: 16),
+
+                // --- Apariencia ---
+                GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Apariencia', style: t.h2),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          for (final a in Appearance.values)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 10),
+                              child: _Pressable(
+                                onTap: () => context
+                                    .read<SettingsCubit>()
+                                    .setAppearance(a),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: state.appearance == a
+                                        ? t.accentSoft
+                                        : t.surfaceAlt,
+                                    borderRadius:
+                                        BorderRadius.circular(t.radius),
+                                    border: Border.all(
+                                        color: state.appearance == a
+                                            ? t.accent
+                                            : t.stroke),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                          a == Appearance.dark
+                                              ? Icons.dark_mode_rounded
+                                              : Icons.light_mode_rounded,
+                                          size: 16,
+                                          color: state.appearance == a
+                                              ? t.accent
+                                              : t.textMuted),
+                                      const SizedBox(width: 8),
+                                      Text(a.label,
+                                          style: t.body.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                              color: state.appearance == a
+                                                  ? t.accent
+                                                  : t.text)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // --- Daemon ---
+                GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Daemon', style: t.h2),
+                      const SizedBox(height: 4),
+                      Text('URL de la API local de Magnus.', style: t.small),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 360,
+                            child: TextField(
+                              controller: _urlCtrl,
+                              style: TextStyle(color: t.text, fontSize: 13.5),
+                              decoration: InputDecoration(
+                                isDense: true,
+                                filled: true,
+                                fillColor: t.surfaceAlt,
+                                hintText: 'http://127.0.0.1:8420',
+                                hintStyle: TextStyle(color: t.textFaint),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(t.radius),
+                                  borderSide: BorderSide(color: t.stroke),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(t.radius),
+                                  borderSide: BorderSide(color: t.stroke),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(t.radius),
+                                  borderSide: BorderSide(color: t.accent),
+                                ),
+                              ),
+                              onSubmitted: (v) =>
+                                  context.read<SettingsCubit>().setDaemonUrl(v),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          MagnusButton(
+                            label: 'Guardar',
+                            icon: Icons.check_rounded,
+                            onTap: () => context
+                                .read<SettingsCubit>()
+                                .setDaemonUrl(_urlCtrl.text),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 }
 
 class _DesignOption extends StatelessWidget {
-  const _DesignOption({required this.design, required this.selected, required this.onTap});
+  const _DesignOption(
+      {required this.design, required this.selected, required this.onTap});
   final DesignSystem design;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final t = MagnusTheme.of(context);
+    return _Pressable(
       onTap: onTap,
       child: Container(
-        width: 200,
+        width: 210,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: selected ? T.accent : T.card,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: selected ? T.accent : T.line, width: selected ? 2 : 1),
+          color: selected ? t.accentSoft : t.surfaceAlt,
+          borderRadius: BorderRadius.circular(t.radius),
+          border: Border.all(
+              color: selected ? t.accent : t.stroke, width: selected ? 1.4 : 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Icon(
+              switch (design) {
+                DesignSystem.windows => Icons.window_rounded,
+                DesignSystem.material => Icons.android_rounded,
+                DesignSystem.apple => Icons.laptop_mac_rounded,
+              },
+              size: 20,
+              color: selected ? t.accent : t.textMuted,
+            ),
+            const SizedBox(height: 10),
             Text(design.label,
-                style: T.body.copyWith(
+                style: t.body.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: selected ? const Color(0xFFFFFFFF) : T.ink)),
-            const SizedBox(height: 4),
+                    color: selected ? t.accent : t.text)),
+            const SizedBox(height: 2),
             Text(
               switch (design) {
-                DesignSystem.windows => 'Fluent / WinUI',
-                DesignSystem.material => 'Material 3',
-                DesignSystem.apple => 'macOS nativo',
+                DesignSystem.windows => 'Fluent · glassmorphism',
+                DesignSystem.material => 'Material You',
+                DesignSystem.apple => 'macOS · vibrancy',
               },
-              style: TextStyle(fontSize: 11, color: selected ? const Color(0xFFE6E4F7) : T.muted),
+              style: t.small,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Pulsación con feedback.
+class _Pressable extends StatefulWidget {
+  const _Pressable({required this.child, required this.onTap});
+  final Widget child;
+  final VoidCallback onTap;
+  @override
+  State<_Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<_Pressable> {
+  bool _down = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _down = true),
+        onTapCancel: () => setState(() => _down = false),
+        onTapUp: (_) => setState(() => _down = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _down ? 0.98 : 1,
+          duration: const Duration(milliseconds: 90),
+          child: widget.child,
         ),
       ),
     );

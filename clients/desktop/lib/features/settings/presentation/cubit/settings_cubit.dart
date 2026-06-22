@@ -5,21 +5,32 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/theme/design_system.dart';
+import '../../../../core/theme/magnus_theme.dart';
 
 class SettingsState extends Equatable {
-  const SettingsState({required this.design, required this.daemonUrl});
+  const SettingsState({
+    required this.design,
+    required this.daemonUrl,
+    required this.appearance,
+  });
 
   final DesignSystem design;
   final String daemonUrl;
+  final Appearance appearance;
 
-  SettingsState copyWith({DesignSystem? design, String? daemonUrl}) =>
+  SettingsState copyWith({
+    DesignSystem? design,
+    String? daemonUrl,
+    Appearance? appearance,
+  }) =>
       SettingsState(
         design: design ?? this.design,
         daemonUrl: daemonUrl ?? this.daemonUrl,
+        appearance: appearance ?? this.appearance,
       );
 
   @override
-  List<Object?> get props => [design, daemonUrl];
+  List<Object?> get props => [design, daemonUrl, appearance];
 }
 
 /// Gestiona el diseño elegido (Windows/Material/Apple) y la URL del daemon,
@@ -29,6 +40,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       : super(SettingsState(
           design: DesignSystem.fromName(_prefs.getString(AppConstants.prefDesignSystem)),
           daemonUrl: _prefs.getString(AppConstants.prefDaemonUrl) ?? AppConstants.defaultDaemonUrl,
+          appearance: Appearance.fromName(_prefs.getString(AppConstants.prefAppearance)),
         )) {
     _dio.baseUrl = state.daemonUrl;
   }
@@ -39,6 +51,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> setDesign(DesignSystem design) async {
     await _prefs.setString(AppConstants.prefDesignSystem, design.name);
     emit(state.copyWith(design: design));
+  }
+
+  Future<void> setAppearance(Appearance appearance) async {
+    await _prefs.setString(AppConstants.prefAppearance, appearance.name);
+    emit(state.copyWith(appearance: appearance));
   }
 
   Future<void> setDaemonUrl(String url) async {

@@ -25,6 +25,7 @@ class AppConstants {
   /// Claves de preferencias persistidas.
   static const String prefDesignSystem = 'design_system';
   static const String prefDaemonUrl = 'daemon_url';
+  static const String prefAppearance = 'appearance';
 
   /// Tamaño mínimo de ventana — clave para que el entorno se ajuste bien.
   static const double minWindowWidth = 720;

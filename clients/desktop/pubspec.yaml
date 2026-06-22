@@ -42,7 +42,6 @@ dependencies:
 
   # --- Persistencia ligera ---
   shared_preferences: ^2.3.2  # recordar diseño elegido y URL del daemon
-  flutter_secure_storage: ^9.2.2  # token de auth del daemon (a futuro)
 
 dev_dependencies:
   flutter_lints: ^4.0.0
