@@ -1,0 +1,28 @@
+Fuente unica seleccionable, glass++ Windows, Material You, auto-deteccion y serving config
+
+Tipografia:
+- Misma fuente en los 3 disenos, seleccionable en Ajustes (Plus Jakarta Sans
+  por defecto; Inter, Manrope, Outfit, DM Sans, Space Grotesk). Aplica tambien
+  a widgets nativos de Material via GoogleFonts.getTextTheme.
+
+Diseno por tema:
+- Windows: mas glass (mas blur y translucidez).
+- Material: mas Material You (superficies tonales malva, esquinas grandes 18-28,
+  indicador de nav redondeado).
+- Apple: iconos y labels de sidebar grandes (SidebarItemSize.large) + toolbar.
+
+Plataforma:
+- Auto-deteccion del dispositivo: arranca en el diseno nativo (macOS a apple,
+  Android a material, Windows a windows) si el usuario no eligio uno.
+
+Modelos - Configuracion de serving (hibrido autodetect mas override):
+- Detecta vendor GPU (NVIDIA/AMD/otro) desde el nombre y sugiere runtime
+  (TensorRT-LLM, vLLM, Ollama). Ajustes: contexto, max tokens, tensor-parallel,
+  uso de memoria GPU, KV cache dtype, FlashInfer. Alimentara el daemon (Fase 1).
+
+Recursos:
+- Deteccion local via dart:io: SO, CPU logicas, equipo, runtime Dart.
+
+flutter analyze limpio; build Windows OK.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

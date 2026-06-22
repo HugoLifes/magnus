@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,25 +13,29 @@ class SettingsState extends Equatable {
     required this.design,
     required this.daemonUrl,
     required this.appearance,
+    required this.fontFamily,
   });
 
   final DesignSystem design;
   final String daemonUrl;
   final Appearance appearance;
+  final String fontFamily;
 
   SettingsState copyWith({
     DesignSystem? design,
     String? daemonUrl,
     Appearance? appearance,
+    String? fontFamily,
   }) =>
       SettingsState(
         design: design ?? this.design,
         daemonUrl: daemonUrl ?? this.daemonUrl,
         appearance: appearance ?? this.appearance,
+        fontFamily: fontFamily ?? this.fontFamily,
       );
 
   @override
-  List<Object?> get props => [design, daemonUrl, appearance];
+  List<Object?> get props => [design, daemonUrl, appearance, fontFamily];
 }
 
 /// Gestiona el diseño elegido (Windows/Material/Apple) y la URL del daemon,
@@ -38,9 +43,14 @@ class SettingsState extends Equatable {
 class SettingsCubit extends Cubit<SettingsState> {
   SettingsCubit(this._prefs, this._dio)
       : super(SettingsState(
-          design: DesignSystem.fromName(_prefs.getString(AppConstants.prefDesignSystem)),
+          // Si no hay diseño guardado, autodetecta por la plataforma del equipo.
+          design: DesignSystem.fromName(
+            _prefs.getString(AppConstants.prefDesignSystem),
+            fallback: DesignSystem.forPlatform(defaultTargetPlatform),
+          ),
           daemonUrl: _prefs.getString(AppConstants.prefDaemonUrl) ?? AppConstants.defaultDaemonUrl,
           appearance: Appearance.fromName(_prefs.getString(AppConstants.prefAppearance)),
+          fontFamily: _prefs.getString(AppConstants.prefFont) ?? AppConstants.defaultFont,
         )) {
     _dio.baseUrl = state.daemonUrl;
   }
@@ -56,6 +66,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> setAppearance(Appearance appearance) async {
     await _prefs.setString(AppConstants.prefAppearance, appearance.name);
     emit(state.copyWith(appearance: appearance));
+  }
+
+  Future<void> setFont(String fontFamily) async {
+    await _prefs.setString(AppConstants.prefFont, fontFamily);
+    emit(state.copyWith(fontFamily: fontFamily));
   }
 
   Future<void> setDaemonUrl(String url) async {

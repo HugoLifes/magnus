@@ -59,13 +59,18 @@ class MagnusApp extends StatelessWidget {
       ],
       child: BlocBuilder<SettingsCubit, SettingsState>(
         buildWhen: (a, b) =>
-            a.design != b.design || a.appearance != b.appearance,
+            a.design != b.design ||
+            a.appearance != b.appearance ||
+            a.fontFamily != b.fontFamily,
         builder: (context, state) {
           final appearance = state.appearance;
+          final font = state.fontFamily;
           return switch (state.design) {
-            DesignSystem.windows => WindowsShell(appearance: appearance),
-            DesignSystem.material => MaterialShell(appearance: appearance),
-            DesignSystem.apple => AppleShell(appearance: appearance),
+            DesignSystem.windows =>
+              WindowsShell(appearance: appearance, font: font),
+            DesignSystem.material =>
+              MaterialShell(appearance: appearance, font: font),
+            DesignSystem.apple => AppleShell(appearance: appearance, font: font),
           };
         },
       ),
@@ -74,8 +79,9 @@ class MagnusApp extends StatelessWidget {
 }
 
 /// Helper para que cada shell envuelva la página activa con el [MagnusTheme]
-/// correspondiente a su diseño y apariencia.
-Widget themedPage(DesignSystem design, Appearance appearance, int index) {
-  return MagnusTheme.forDesign(design, appearance.brightness)
+/// correspondiente a su diseño, apariencia y fuente.
+Widget themedPage(
+    DesignSystem design, Appearance appearance, String font, int index) {
+  return MagnusTheme.forDesign(design, appearance.brightness, font: font)
       .provide(child: magnusPage(index));
 }

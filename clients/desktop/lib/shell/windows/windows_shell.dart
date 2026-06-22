@@ -10,8 +10,9 @@ import '../widgets/shell_chrome.dart';
 /// Shell de diseño Windows: FluentApp + barra lateral colapsable (sidebarx)
 /// sobre un fondo Acrylic translúcido (glassmorphism). Oscuro por defecto.
 class WindowsShell extends StatefulWidget {
-  const WindowsShell({super.key, required this.appearance});
+  const WindowsShell({super.key, required this.appearance, required this.font});
   final Appearance appearance;
+  final String font;
 
   @override
   State<WindowsShell> createState() => _WindowsShellState();
@@ -34,7 +35,8 @@ class _WindowsShellState extends State<WindowsShell> {
 
   @override
   Widget build(BuildContext context) {
-    final t = MagnusTheme.forDesign(DesignSystem.windows, widget.appearance.brightness);
+    final t = MagnusTheme.forDesign(DesignSystem.windows, widget.appearance.brightness,
+        font: widget.font);
     final dark = t.isDark;
 
     return FluentApp(
@@ -58,8 +60,8 @@ class _WindowsShellState extends State<WindowsShell> {
             children: [
               _Sidebar(controller: _controller, theme: t, dark: dark),
               Expanded(
-                child: themedPage(
-                    DesignSystem.windows, widget.appearance, _controller.selectedIndex),
+                child: themedPage(DesignSystem.windows, widget.appearance,
+                    widget.font, _controller.selectedIndex),
               ),
             ],
           ),

@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -81,6 +83,28 @@ class ResourcesPage extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text('Este equipo', style: t.h2),
                 ],
+              ),
+              const SizedBox(height: 12),
+              GlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Especificaciones detectadas', style: t.h2),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 22,
+                      runSpacing: 14,
+                      children: [
+                        _Spec(LucideIcons.monitor, 'Sistema', _osName()),
+                        _Spec(LucideIcons.cpu, 'CPU lógicas',
+                            '${Platform.numberOfProcessors} hilos'),
+                        _Spec(LucideIcons.server, 'Equipo', _host()),
+                        _Spec(LucideIcons.code, 'Runtime',
+                            'Dart ${Platform.version.split(' ').first}'),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
               GlassCard(
@@ -259,5 +283,51 @@ class _Tip extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Una especificación detectada (icono + etiqueta + valor).
+class _Spec extends StatelessWidget {
+  const _Spec(this.icon, this.label, this.value);
+  final IconData icon;
+  final String label;
+  final String value;
+  @override
+  Widget build(BuildContext context) {
+    final t = MagnusTheme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18, color: t.textMuted),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label, style: t.small.copyWith(color: t.textFaint)),
+            Text(value, style: t.body.copyWith(fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+String _osName() {
+  const pretty = {
+    'windows': 'Windows',
+    'macos': 'macOS',
+    'linux': 'Linux',
+    'android': 'Android',
+    'ios': 'iOS',
+  };
+  return pretty[Platform.operatingSystem] ?? Platform.operatingSystem;
+}
+
+String _host() {
+  try {
+    return Platform.localHostname;
+  } catch (_) {
+    return '—';
   }
 }

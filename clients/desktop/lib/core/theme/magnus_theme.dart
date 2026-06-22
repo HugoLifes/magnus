@@ -120,7 +120,11 @@ class MagnusTheme {
   // ----------------------------------------------------------------------
   // Fábrica: tokens por (diseño × apariencia).
   // ----------------------------------------------------------------------
-  factory MagnusTheme.forDesign(DesignSystem design, Brightness b) {
+  factory MagnusTheme.forDesign(
+    DesignSystem design,
+    Brightness b, {
+    String font = 'Plus Jakarta Sans',
+  }) {
     final dark = b == Brightness.dark;
     switch (design) {
       // ---------------- WINDOWS — glassmorphism (Acrylic/Mica) -------------
@@ -128,34 +132,35 @@ class MagnusTheme {
         return MagnusTheme(
           design: design,
           brightness: b,
-          uiFamily: 'Inter',
-          displayFamily: 'Space Grotesk',
-          bg: dark ? const Color(0xFF0D0A18) : const Color(0xFFF3F2FB),
-          surface: dark ? const Color(0x14FFFFFF) : const Color(0xCCFFFFFF),
+          uiFamily: font,
+          displayFamily: font,
+          // Más translúcido + más blur = glass más marcado (lo pedido).
+          bg: dark ? const Color(0xFF0B0817) : const Color(0xFFEFEEF9),
+          surface: dark ? const Color(0x0FFFFFFF) : const Color(0xB3FFFFFF),
           surfaceStrong:
-              dark ? const Color(0x1FFFFFFF) : const Color(0xF2FFFFFF),
-          surfaceAlt: dark ? const Color(0x0DFFFFFF) : const Color(0x0A1A1730),
-          stroke: dark ? const Color(0x1FFFFFFF) : const Color(0x14101030),
-          strokeStrong: dark ? const Color(0x40FFFFFF) : const Color(0x26101030),
+              dark ? const Color(0x1AFFFFFF) : const Color(0xE6FFFFFF),
+          surfaceAlt: dark ? const Color(0x0AFFFFFF) : const Color(0x0A1A1730),
+          stroke: dark ? const Color(0x24FFFFFF) : const Color(0x14101030),
+          strokeStrong: dark ? const Color(0x4DFFFFFF) : const Color(0x26101030),
           accent: dark ? const Color(0xFF8B7BFF) : const Color(0xFF5A4FCF),
-          accentSoft: dark ? const Color(0x268B7BFF) : const Color(0x1A5A4FCF),
+          accentSoft: dark ? const Color(0x308B7BFF) : const Color(0x1A5A4FCF),
           onAccent: const Color(0xFFFFFFFF),
           ok: const Color(0xFF34D399),
           warn: const Color(0xFFFBBF24),
           bad: const Color(0xFFFB6F92),
           info: const Color(0xFF60C8FF),
           text: dark ? const Color(0xFFECEAFB) : const Color(0xFF1C1930),
-          textMuted: dark ? const Color(0xFFA8A3C7) : const Color(0xFF5B5773),
-          textFaint: dark ? const Color(0xFF6F6A8C) : const Color(0xFF8C889F),
+          textMuted: dark ? const Color(0xFFB1ADCC) : const Color(0xFF5B5773),
+          textFaint: dark ? const Color(0xFF77728F) : const Color(0xFF8C889F),
           radius: 10,
           radiusLg: 16,
           glass: true,
-          blurSigma: 26,
+          blurSigma: 40,
           shadow: [
             BoxShadow(
-              color: Color(dark ? 0x66000000 : 0x14000000),
-              blurRadius: 30,
-              offset: const Offset(0, 14),
+              color: Color(dark ? 0x73000000 : 0x1A000000),
+              blurRadius: 36,
+              offset: const Offset(0, 16),
             ),
           ],
         );
@@ -165,34 +170,35 @@ class MagnusTheme {
         return MagnusTheme(
           design: design,
           brightness: b,
-          uiFamily: 'Inter',
-          displayFamily: 'Plus Jakarta Sans',
-          bg: dark ? const Color(0xFF141218) : const Color(0xFFFBF8FF),
-          surface: dark ? const Color(0xFF211F26) : const Color(0xFFFFFFFF),
+          uiFamily: font,
+          displayFamily: font,
+          // Material You: superficies tonales con tinte malva, esquinas grandes.
+          bg: dark ? const Color(0xFF141218) : const Color(0xFFFEF7FF),
+          surface: dark ? const Color(0xFF1D1B20) : const Color(0xFFFFFFFF),
           surfaceStrong:
-              dark ? const Color(0xFF2B2930) : const Color(0xFFF3EDF9),
-          surfaceAlt: dark ? const Color(0xFF1C1B20) : const Color(0xFFEDE7F4),
+              dark ? const Color(0xFF2B2930) : const Color(0xFFF7F2FA),
+          surfaceAlt: dark ? const Color(0xFF211F26) : const Color(0xFFECE6F0),
           stroke: dark ? const Color(0x1FFFFFFF) : const Color(0x14000000),
           strokeStrong: dark ? const Color(0x3DFFFFFF) : const Color(0x24000000),
-          accent: dark ? const Color(0xFFCBBEFF) : const Color(0xFF6750A4),
-          accentSoft: dark ? const Color(0x3D6750A4) : const Color(0x1A6750A4),
-          onAccent: dark ? const Color(0xFF21005D) : const Color(0xFFFFFFFF),
+          accent: dark ? const Color(0xFFD0BCFF) : const Color(0xFF6750A4),
+          accentSoft: dark ? const Color(0x3D6750A4) : const Color(0x166750A4),
+          onAccent: dark ? const Color(0xFF381E72) : const Color(0xFFFFFFFF),
           ok: const Color(0xFF4CAF94),
           warn: const Color(0xFFE0A100),
           bad: const Color(0xFFE5484D),
           info: const Color(0xFF4AA8E0),
-          text: dark ? const Color(0xFFE7E0EB) : const Color(0xFF1D1B20),
+          text: dark ? const Color(0xFFE6E0E9) : const Color(0xFF1D1B20),
           textMuted: dark ? const Color(0xFFCAC4D0) : const Color(0xFF49454F),
-          textFaint: dark ? const Color(0xFF938F99) : const Color(0xFF79747E),
-          radius: 16,
-          radiusLg: 24,
+          textFaint: dark ? const Color(0xFF948F99) : const Color(0xFF79747E),
+          radius: 18,
+          radiusLg: 28,
           glass: false,
           blurSigma: 0,
           shadow: [
             BoxShadow(
-              color: Color(dark ? 0x59000000 : 0x12000000),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
+              color: Color(dark ? 0x4D000000 : 0x14000000),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
             ),
           ],
         );
@@ -202,8 +208,8 @@ class MagnusTheme {
         return MagnusTheme(
           design: design,
           brightness: b,
-          uiFamily: 'Inter',
-          displayFamily: 'Inter Tight',
+          uiFamily: font,
+          displayFamily: font,
           bg: dark ? const Color(0xFF1E1E1E) : const Color(0xFFECECEC),
           surface: dark ? const Color(0x14FFFFFF) : const Color(0xF0FFFFFF),
           surfaceStrong:

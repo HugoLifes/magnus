@@ -2,8 +2,10 @@ import 'package:flutter/material.dart'
     show Material, Colors, TextField, InputDecoration, OutlineInputBorder;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/constants.dart';
 import '../../../../core/theme/design_system.dart';
 import '../../../../core/theme/magnus_theme.dart';
 import '../../../../shared/widgets/ui.dart';
@@ -125,6 +127,56 @@ class _SettingsPageState extends State<SettingsPage> {
                                                   ? t.accent
                                                   : t.text)),
                                     ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // --- Tipografía ---
+                GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Tipografía', style: t.h2),
+                      const SizedBox(height: 4),
+                      Text('La misma fuente en los tres diseños.', style: t.small),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          for (final f in AppConstants.fonts)
+                            _Pressable(
+                              onTap: () =>
+                                  context.read<SettingsCubit>().setFont(f),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: state.fontFamily == f
+                                      ? t.accentSoft
+                                      : t.surfaceAlt,
+                                  borderRadius: BorderRadius.circular(t.radius),
+                                  border: Border.all(
+                                      color: state.fontFamily == f
+                                          ? t.accent
+                                          : t.stroke),
+                                ),
+                                child: Text(
+                                  f,
+                                  style: GoogleFonts.getFont(
+                                    f, // muestra la fuente misma
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: state.fontFamily == f
+                                        ? t.accent
+                                        : t.text,
                                   ),
                                 ),
                               ),

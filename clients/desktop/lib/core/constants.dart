@@ -26,6 +26,18 @@ class AppConstants {
   static const String prefDesignSystem = 'design_system';
   static const String prefDaemonUrl = 'daemon_url';
   static const String prefAppearance = 'appearance';
+  static const String prefFont = 'font_family';
+
+  /// Fuente por defecto (misma en los 3 diseños) y opciones ofrecidas en Ajustes.
+  static const String defaultFont = 'Plus Jakarta Sans';
+  static const List<String> fonts = [
+    'Plus Jakarta Sans',
+    'Inter',
+    'Manrope',
+    'Outfit',
+    'DM Sans',
+    'Space Grotesk',
+  ];
 
   /// Tamaño mínimo de ventana — clave para que el entorno se ajuste bien.
   static const double minWindowWidth = 720;
