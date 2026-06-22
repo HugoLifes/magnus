@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart'
-    show Material, Colors, TextField, InputDecoration, OutlineInputBorder, Icons, Slider;
+    show Material, Colors, TextField, InputDecoration, OutlineInputBorder, Slider;
 import 'package:flutter/widgets.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/theme/magnus_theme.dart';
 import '../../../../shared/widgets/ui.dart';
@@ -55,7 +56,7 @@ class _RagPageState extends State<RagPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SectionHeader(
-              icon: Icons.hub_rounded,
+              icon: LucideIcons.brain,
               title: 'RAG local',
               subtitle: 'Memoria extendida: indexa tus fuentes con embeddings locales.',
               trailing: Pill('índice no construido', color: t.warn),
@@ -112,7 +113,7 @@ class _RagPageState extends State<RagPage> {
                       const SizedBox(width: 10),
                       MagnusButton(
                         label: 'Añadir',
-                        icon: Icons.add_rounded,
+                        icon: LucideIcons.plus,
                         primary: false,
                         onTap: _addSource,
                       ),
@@ -130,7 +131,7 @@ class _RagPageState extends State<RagPage> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.insert_drive_file_outlined,
+                          Icon(LucideIcons.fileText,
                               size: 15, color: t.textMuted),
                           const SizedBox(width: 10),
                           Expanded(
@@ -140,8 +141,8 @@ class _RagPageState extends State<RagPage> {
                                   overflow: TextOverflow.ellipsis)),
                           GestureDetector(
                             onTap: () => setState(() => _sources.remove(s)),
-                            child: Icon(Icons.close_rounded,
-                                size: 16, color: t.textFaint),
+                            child: Icon(LucideIcons.x,
+                                size: 14, color: t.textFaint),
                           ),
                         ],
                       ),
@@ -184,7 +185,7 @@ class _RagPageState extends State<RagPage> {
               children: [
                 MagnusButton(
                   label: 'Construir índice',
-                  icon: Icons.build_rounded,
+                  icon: LucideIcons.hammer,
                   onTap: () {}, // pendiente: endpoint RAG del daemon (Fase 1)
                 ),
                 const SizedBox(width: 12),

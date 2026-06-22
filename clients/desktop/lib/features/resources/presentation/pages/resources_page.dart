@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/theme/magnus_theme.dart';
 import '../../../../shared/widgets/ui.dart';
@@ -23,7 +23,7 @@ class ResourcesPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SectionHeader(
-                icon: Icons.monitor_heart_rounded,
+                icon: LucideIcons.heartPulse,
                 title: 'Recursos y salud',
                 subtitle: 'Vigila el desgaste por uso continuo de la IA.',
               ),
@@ -31,7 +31,7 @@ class ResourcesPage extends StatelessWidget {
               // --- Servidor (host del daemon) ---
               Row(
                 children: [
-                  Icon(Icons.dns_rounded, size: 16, color: t.accent),
+                  Icon(LucideIcons.server, size: 16, color: t.accent),
                   const SizedBox(width: 8),
                   Text('Servidor de inferencia', style: t.h2),
                 ],
@@ -53,7 +53,7 @@ class ResourcesPage extends StatelessWidget {
                   children: [
                     for (final g in gpus)
                       _MetricCard(
-                        icon: Icons.memory_rounded,
+                        icon: LucideIcons.cpu,
                         title: 'GPU ${g.index} · VRAM',
                         sub: g.name,
                         used: g.totalGib - g.freeGib,
@@ -67,9 +67,9 @@ class ResourcesPage extends StatelessWidget {
                 spacing: 14,
                 runSpacing: 14,
                 children: [
-                  _PendingMetric(icon: Icons.developer_board_rounded, title: 'CPU del servidor'),
-                  _PendingMetric(icon: Icons.sd_card_rounded, title: 'RAM del servidor'),
-                  _PendingMetric(icon: Icons.storage_rounded, title: 'Disco / modelos'),
+                  _PendingMetric(icon: LucideIcons.cpu, title: 'CPU del servidor'),
+                  _PendingMetric(icon: LucideIcons.memoryStick, title: 'RAM del servidor'),
+                  _PendingMetric(icon: LucideIcons.hardDrive, title: 'Disco / modelos'),
                 ],
               ),
               const SizedBox(height: 26),
@@ -77,7 +77,7 @@ class ResourcesPage extends StatelessWidget {
               // --- Este equipo ---
               Row(
                 children: [
-                  Icon(Icons.laptop_windows_rounded, size: 16, color: t.info),
+                  Icon(LucideIcons.laptop, size: 16, color: t.info),
                   const SizedBox(width: 8),
                   Text('Este equipo', style: t.h2),
                 ],
@@ -97,7 +97,7 @@ class ResourcesPage extends StatelessWidget {
                             borderRadius: BorderRadius.circular(t.radius),
                           ),
                           alignment: Alignment.center,
-                          child: Icon(Icons.cleaning_services_rounded,
+                          child: Icon(LucideIcons.sparkles,
                               size: 18, color: t.info),
                         ),
                         const SizedBox(width: 12),
@@ -115,7 +115,7 @@ class ResourcesPage extends StatelessWidget {
                         ),
                         MagnusButton(
                           label: 'Limpiar caché',
-                          icon: Icons.delete_sweep_rounded,
+                          icon: LucideIcons.trash2,
                           primary: false,
                           onTap: () {}, // limpieza local del cliente
                         ),
@@ -133,7 +133,7 @@ class ResourcesPage extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.favorite_rounded, size: 16, color: t.bad),
+                        Icon(LucideIcons.heart, size: 16, color: t.bad),
                         const SizedBox(width: 8),
                         Text('Salud del hardware', style: t.h2),
                       ],
@@ -252,7 +252,7 @@ class _Tip extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 5),
-            child: Icon(Icons.check_circle_outline_rounded, size: 14, color: t.ok),
+            child: Icon(LucideIcons.circleCheck, size: 14, color: t.ok),
           ),
           const SizedBox(width: 10),
           Expanded(child: Text(text, style: t.body)),

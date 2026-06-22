@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart'
-    show Material, Colors, TextField, InputDecoration, OutlineInputBorder, Icons;
+    show Material, Colors, TextField, InputDecoration, OutlineInputBorder;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/theme/design_system.dart';
 import '../../../../core/theme/magnus_theme.dart';
@@ -43,7 +44,7 @@ class _SettingsPageState extends State<SettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SectionHeader(
-                  icon: Icons.settings_rounded,
+                  icon: LucideIcons.settings,
                   title: 'Ajustes',
                   subtitle: 'Diseño, apariencia y conexión al daemon.',
                 ),
@@ -110,8 +111,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                     children: [
                                       Icon(
                                           a == Appearance.dark
-                                              ? Icons.dark_mode_rounded
-                                              : Icons.light_mode_rounded,
+                                              ? LucideIcons.moon
+                                              : LucideIcons.sun,
                                           size: 16,
                                           color: state.appearance == a
                                               ? t.accent
@@ -177,7 +178,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           const SizedBox(width: 12),
                           MagnusButton(
                             label: 'Guardar',
-                            icon: Icons.check_rounded,
+                            icon: LucideIcons.check,
                             onTap: () => context
                                 .read<SettingsCubit>()
                                 .setDaemonUrl(_urlCtrl.text),
@@ -222,9 +223,9 @@ class _DesignOption extends StatelessWidget {
           children: [
             Icon(
               switch (design) {
-                DesignSystem.windows => Icons.window_rounded,
-                DesignSystem.material => Icons.android_rounded,
-                DesignSystem.apple => Icons.laptop_mac_rounded,
+                DesignSystem.windows => LucideIcons.monitor,
+                DesignSystem.material => LucideIcons.smartphone,
+                DesignSystem.apple => LucideIcons.laptop,
               },
               size: 20,
               color: selected ? t.accent : t.textMuted,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart'
-    show Material, Colors, TextField, InputDecoration, InputBorder, Icons, TextInputAction;
+    show Material, Colors, TextField, InputDecoration, InputBorder, TextInputAction;
 import 'package:flutter/widgets.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/magnus_theme.dart';
@@ -129,7 +130,7 @@ class _History extends StatelessWidget {
         children: [
           MagnusButton(
             label: 'Nueva conversación',
-            icon: Icons.add_rounded,
+            icon: LucideIcons.plus,
             onTap: onNew,
           ),
           const SizedBox(height: 14),
@@ -156,7 +157,7 @@ class _History extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.chat_bubble_outline_rounded,
+                        Icon(LucideIcons.messageCircle,
                             size: 15,
                             color: selected ? t.accent : t.textMuted),
                         const SizedBox(width: 10),
@@ -209,14 +210,14 @@ class _Thread extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              Icon(Icons.bolt_rounded, size: 16, color: t.warn),
+              Icon(LucideIcons.zap, size: 16, color: t.warn),
               const SizedBox(width: 8),
               Text('Sin modelo cargado',
                   style: t.body.copyWith(fontWeight: FontWeight.w600)),
               const Spacer(),
-              Pill('$tokens tokens', color: t.info, icon: Icons.toll_rounded),
+              Pill('$tokens tokens', color: t.info, icon: LucideIcons.coins),
               const SizedBox(width: 8),
-              Pill(r'$0.00 ahorro', color: t.ok, icon: Icons.savings_rounded),
+              Pill(r'$0.00 ahorro', color: t.ok, icon: LucideIcons.piggyBank),
             ],
           ),
         ),
@@ -224,7 +225,7 @@ class _Thread extends StatelessWidget {
         Expanded(
           child: convo.messages.isEmpty
               ? const EmptyState(
-                  icon: Icons.forum_rounded,
+                  icon: LucideIcons.messagesSquare,
                   title: 'Empieza a chatear',
                   message:
                       'Escribe un mensaje abajo. Se transmitirá al modelo montado '
@@ -324,7 +325,7 @@ class _SendButton extends StatelessWidget {
           color: t.accent,
           borderRadius: BorderRadius.circular(t.radius),
         ),
-        child: Icon(Icons.arrow_upward_rounded, color: t.onAccent, size: 20),
+        child: Icon(LucideIcons.send, color: t.onAccent, size: 18),
       ),
     );
   }

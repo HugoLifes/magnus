@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'design_system.dart';
 
@@ -52,7 +53,8 @@ class MagnusTheme {
     required this.glass,
     required this.blurSigma,
     required this.shadow,
-    this.fontFamily,
+    required this.uiFamily,
+    required this.displayFamily,
   });
 
   final DesignSystem design;
@@ -86,35 +88,34 @@ class MagnusTheme {
   final bool glass; // usar BackdropFilter en tarjetas
   final double blurSigma;
   final List<BoxShadow> shadow;
-  final String? fontFamily;
+
+  /// Familias tipográficas (Google Fonts). [displayFamily] aporta carácter a
+  /// los títulos por tema; [uiFamily] es legible y neutra para el cuerpo.
+  final String uiFamily;
+  final String displayFamily;
 
   bool get isDark => brightness == Brightness.dark;
 
   // --- Tipografía derivada (color desde tokens) ---
-  TextStyle get display => TextStyle(
-      fontFamily: fontFamily,
+  TextStyle get display => GoogleFonts.getFont(displayFamily,
       fontSize: 26,
-      height: 1.15,
+      height: 1.12,
       fontWeight: FontWeight.w700,
-      letterSpacing: -0.4,
+      letterSpacing: -0.5,
       color: text);
-  TextStyle get h1 => TextStyle(
-      fontFamily: fontFamily,
-      fontSize: 21,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -0.2,
-      color: text);
-  TextStyle get h2 => TextStyle(
-      fontFamily: fontFamily,
-      fontSize: 15,
+  TextStyle get h1 => GoogleFonts.getFont(displayFamily,
+      fontSize: 20,
       fontWeight: FontWeight.w600,
+      letterSpacing: -0.3,
       color: text);
-  TextStyle get body => TextStyle(
-      fontFamily: fontFamily, fontSize: 13.5, height: 1.4, color: text);
-  TextStyle get small => TextStyle(
-      fontFamily: fontFamily, fontSize: 12, height: 1.35, color: textMuted);
-  TextStyle get mono => TextStyle(
-      fontFamily: 'monospace', fontSize: 12.5, height: 1.3, color: text);
+  TextStyle get h2 => GoogleFonts.getFont(uiFamily,
+      fontSize: 15, fontWeight: FontWeight.w600, color: text);
+  TextStyle get body => GoogleFonts.getFont(uiFamily,
+      fontSize: 13.5, height: 1.45, color: text);
+  TextStyle get small => GoogleFonts.getFont(uiFamily,
+      fontSize: 12, height: 1.35, fontWeight: FontWeight.w500, color: textMuted);
+  TextStyle get mono => GoogleFonts.jetBrainsMono(
+      fontSize: 12.5, height: 1.3, color: text);
 
   // ----------------------------------------------------------------------
   // Fábrica: tokens por (diseño × apariencia).
@@ -127,7 +128,8 @@ class MagnusTheme {
         return MagnusTheme(
           design: design,
           brightness: b,
-          fontFamily: 'Segoe UI Variable',
+          uiFamily: 'Inter',
+          displayFamily: 'Space Grotesk',
           bg: dark ? const Color(0xFF0D0A18) : const Color(0xFFF3F2FB),
           surface: dark ? const Color(0x14FFFFFF) : const Color(0xCCFFFFFF),
           surfaceStrong:
@@ -163,6 +165,8 @@ class MagnusTheme {
         return MagnusTheme(
           design: design,
           brightness: b,
+          uiFamily: 'Inter',
+          displayFamily: 'Plus Jakarta Sans',
           bg: dark ? const Color(0xFF141218) : const Color(0xFFFBF8FF),
           surface: dark ? const Color(0xFF211F26) : const Color(0xFFFFFFFF),
           surfaceStrong:
@@ -198,7 +202,8 @@ class MagnusTheme {
         return MagnusTheme(
           design: design,
           brightness: b,
-          fontFamily: '.AppleSystemUIFont',
+          uiFamily: 'Inter',
+          displayFamily: 'Inter Tight',
           bg: dark ? const Color(0xFF1E1E1E) : const Color(0xFFECECEC),
           surface: dark ? const Color(0x14FFFFFF) : const Color(0xF0FFFFFF),
           surfaceStrong:

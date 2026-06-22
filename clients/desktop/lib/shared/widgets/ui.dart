@@ -59,6 +59,8 @@ class _GlassCardState extends State<GlassCard> {
     );
 
     if (t.glass) {
+      // Brillo de borde superior: simula la luz que atrapa el cristal esmerilado.
+      final highlightLine = Color(t.isDark ? 0x26FFFFFF : 0x80FFFFFF);
       content = DecoratedBox(
         decoration: BoxDecoration(borderRadius: radius, boxShadow: t.shadow),
         child: ClipRRect(
@@ -66,7 +68,19 @@ class _GlassCardState extends State<GlassCard> {
           child: BackdropFilter(
             filter:
                 ui.ImageFilter.blur(sigmaX: t.blurSigma, sigmaY: t.blurSigma),
-            child: content,
+            child: Stack(
+              children: [
+                content,
+                Positioned(
+                  top: 0,
+                  left: t.radiusLg,
+                  right: t.radiusLg,
+                  child: IgnorePointer(
+                    child: Container(height: 1, color: highlightLine),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );

@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'core/di/injector.dart';
 import 'core/theme/design_system.dart';
@@ -35,12 +35,12 @@ Widget magnusPage(int index) => switch (index) {
     };
 
 const magnusDestinations = <NavDest>[
-  NavDest('Inicio', Icons.space_dashboard_rounded),
-  NavDest('Chat', Icons.forum_rounded),
-  NavDest('Modelos', Icons.memory_rounded),
-  NavDest('RAG', Icons.hub_rounded),
-  NavDest('Recursos', Icons.monitor_heart_rounded),
-  NavDest('Ajustes', Icons.settings_rounded),
+  NavDest('Inicio', LucideIcons.gauge),
+  NavDest('Chat', LucideIcons.messageCircle),
+  NavDest('Modelos', LucideIcons.cpu),
+  NavDest('RAG', LucideIcons.brain),
+  NavDest('Recursos', LucideIcons.heartPulse),
+  NavDest('Ajustes', LucideIcons.settings),
 ];
 
 /// Raíz de la app. Provee los BLoC por encima del *App y elige el shell según

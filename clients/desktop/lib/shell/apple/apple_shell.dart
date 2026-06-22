@@ -46,6 +46,10 @@ class _AppleShellState extends State<AppleShell> {
           ),
         ),
         child: MacosScaffold(
+          toolBar: ToolBar(
+            title: Text(magnusDestinations[_index].label),
+            titleWidth: 250,
+          ),
           children: [
             ContentArea(
               builder: (context, scrollController) => DecoratedBox(

@@ -37,7 +37,7 @@ dependencies:
   fl_chart: ^0.69.0           # gráficas para el dashboard de tokens/coste
   data_table_2: ^2.5.15       # tablas con scroll/orden para modelos y cuantizaciones
   google_fonts: ^6.2.1        # tipografía
-  phosphor_flutter: ^2.1.0    # set de iconos consistente
+  lucide_icons_flutter: ^3.1.14  # set de iconos fino y consistente (compatible Flutter 3.44)
   toastification: ^2.3.0      # notificaciones/toasts no intrusivos
 
   # --- Persistencia ligera ---
