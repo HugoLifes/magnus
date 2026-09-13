@@ -69,7 +69,7 @@ from core.telemetry import sample_system
 
 api = FastAPI(
     title="Magnus daemon",
-    version="0.1.0",
+    version="0.9.0b1",
     description="API local. Contrato único para CLI y clientes Flutter.",
 )
 
@@ -256,7 +256,7 @@ def health(manager: ManagerDep) -> dict:
     return {
         "status": "ok",
         "service": "magnus",
-        "version": "0.1.0",
+        "version": "0.9.0b1",
         "ollama": manager.ollama_available(),
         "ollama_version": manager.ollama_version(),
     }

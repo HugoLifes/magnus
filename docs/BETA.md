@@ -33,12 +33,22 @@ toda la familia NVIDIA:
 | Configuración / carpeta de datos por SO | ✅ | `config.json` + variables de entorno; `/settings` |
 | Skills | ✅ | `SKILL.md` con recarga en caliente; `/skills`, `magnus skill`; 3 incluidas |
 | Memoria + RAG local | ✅ | Embeddings locales vía Ollama, SQLite; `/rag`, `/memory`, `magnus rag`/`mem` |
-| Agentes con herramientas | ❌ | |
-| Auth si se expone en red | ❌ | Hoy solo loopback, correcto por defecto |
-| Cliente Flutter conectado | ❌ | Chat, descargas, recursos en vivo |
-| Instalador Windows | ❌ | |
-| CI verde | ✅ | ruff limpio |
-| Contrato OpenAPI congelado | ❌ | |
+| Agentes con herramientas | ✅ | YAML, tool calling de Ollama, herramientas seguras; `/agents`, `magnus agent` |
+| Auth si se expone en red | ✅ | Token obligatorio fuera de loopback; `magnus token new` |
+| Cliente Flutter conectado | ✅ | Todas las secciones con la API real; probado contra el Jetson |
+| Instalador | 🟡 | Scripts por usuario para Windows y Linux; falta ejecutable firmado |
+| CI verde | ✅ | ruff limpio, 264 tests |
+| Contrato OpenAPI congelado | ✅ | `docs/api/openapi-v1.json`, versión `0.9.0b1` |
+
+## Lo que queda abierto en la beta
+
+- **Agentes con modelos pequeños**: el bucle funciona, pero por debajo de ~3 B el modelo no
+  usa las herramientas de forma fiable (medido con qwen3:0.6b). Magnus lo avisa; validar
+  con un modelo de 4 B o más en un equipo con memoria para él.
+- **Instalador firmado** para Windows (hoy es un script de PowerShell) y paquete `.msix`
+  de la app.
+- **macOS**: la app compila, pero Magnus está pensado para NVIDIA; en Mac solo tiene
+  sentido como cliente de un daemon remoto.
 
 Hallazgos del Jetson (memoria, NvMap, versión de Ollama): [`JETSON.md`](JETSON.md).
 
