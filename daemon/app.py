@@ -24,8 +24,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import StreamingResponse
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.concurrency import iterate_in_threadpool
 
@@ -62,6 +62,7 @@ from core.rag import (
     RagError,
     RagStore,
 )
+from core.security import PUBLIC_PATHS, token_ok
 from core.skills import BUILTIN_SKILLS_DIR, SkillError, SkillRegistry, build_skill
 from core.store import Store
 from core.telemetry import sample_system
@@ -81,6 +82,17 @@ api = FastAPI(
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return load_settings()
+
+
+@api.middleware("http")
+async def require_token(request: Request, call_next):
+    """Con token configurado, todo salvo /health lo exige (ver core/security.py)."""
+    if request.url.path not in PUBLIC_PATHS and not token_ok(
+        get_settings().api_token, request.headers, request.query_params
+    ):
+        return JSONResponse(status_code=401,
+                            content={"detail": "Falta el token de acceso o no es válido."})
+    return await call_next(request)
 
 
 @lru_cache(maxsize=1)
@@ -451,6 +463,10 @@ async def chat_ws(websocket: WebSocket, service: ChatDep) -> None:
     fuentes), muchos `token` y un `done` con las métricas del turno (o `error`).
     La conexión sirve para varios turnos seguidos.
     """
+    # El middleware HTTP no cubre WebSockets: se comprueba aquí, antes de aceptar.
+    if not token_ok(get_settings().api_token, websocket.headers, websocket.query_params):
+        await websocket.close(code=4401)
+        return
     await websocket.accept()
     try:
         while True:

@@ -837,8 +837,43 @@ def serve(
     """Arranca el daemon (API local que consumirán CLI y clientes Flutter)."""
     import uvicorn
 
+    from core.security import bind_error
+
+    token = load_settings().api_token
+    error = bind_error(host, token)
+    if error:
+        console.print(f"[red]{error}[/red]")
+        raise typer.Exit(code=1)
     console.print(f"[green]Magnus daemon[/green] en http://{host}:{port}  (docs en /docs)")
+    if token:
+        console.print("[dim]Protegido con token: los clientes deben enviarlo.[/dim]")
     uvicorn.run("daemon.app:api", host=host, port=port, reload=False)
+
+
+token_app = typer.Typer(help="Token de acceso para exponer el daemon en la red.")
+app.add_typer(token_app, name="token")
+
+
+@token_app.command("new")
+def token_new() -> None:
+    """Crea (o reemplaza) el token. Se muestra una sola vez."""
+    from core.config import save_settings
+    from core.security import generate_token
+
+    token = generate_token()
+    save_settings({"api_token": token})
+    console.print("[green]✓ Token creado.[/green] Cópialo en Ajustes del cliente; no se volverá a mostrar:")
+    console.out(token, highlight=False)
+    console.print("[dim]Reinicia `magnus serve` para aplicarlo.[/dim]")
+
+
+@token_app.command("rm")
+def token_rm() -> None:
+    """Quita el token: el daemon solo podrá escuchar en loopback."""
+    from core.config import save_settings
+
+    save_settings({"api_token": None})
+    console.print("[green]✓ Token eliminado.[/green] Reinicia `magnus serve`.")
 
 
 if __name__ == "__main__":
