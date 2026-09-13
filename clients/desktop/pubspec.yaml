@@ -19,6 +19,7 @@ dependencies:
 
   # --- Red ---
   dio: ^5.7.0                 # (pedido) cliente HTTP hacia el daemon de Magnus
+  web_socket_channel: ^3.0.1  # chat con tokens en vivo (WebSocket /chat del daemon)
 
   # --- Diseño: 3 sistemas nativos ---
   fluent_ui: ^4.9.2           # (pedido) diseño Windows (Fluent / WinUI)

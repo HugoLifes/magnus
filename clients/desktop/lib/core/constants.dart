@@ -25,6 +25,7 @@ class AppConstants {
   /// Claves de preferencias persistidas.
   static const String prefDesignSystem = 'design_system';
   static const String prefDaemonUrl = 'daemon_url';
+  static const String prefDaemonToken = 'daemon_token';
   static const String prefAppearance = 'appearance';
   static const String prefFont = 'font_family';
   static const String prefUseSystemAccent = 'use_system_accent';

@@ -1,28 +1,19 @@
 import 'package:flutter/material.dart'
-    show Material, Colors, TextField, InputDecoration, InputBorder, TextInputAction;
+    show Material, Colors, TextField, InputDecoration, InputBorder, SelectableText;
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/magnus_theme.dart';
+import '../../../../shared/format.dart';
+import '../../../../shared/widgets/forms.dart';
 import '../../../../shared/widgets/ui.dart';
+import '../cubit/chat_cubit.dart';
 
-/// Mensaje de chat (modelo local; el transporte real será el WS `/chat`).
-class _Msg {
-  _Msg(this.role, this.text);
-  final String role; // 'user' | 'assistant'
-  final String text;
-}
-
-class _Conversation {
-  _Conversation(this.title, this.messages);
-  final String title;
-  final List<_Msg> messages;
-}
-
-/// Sección de Chat: historial de conversaciones + hilo + compositor.
-/// El envío real se conectará al WebSocket `/chat` del daemon (Fase 1); por
-/// ahora la UI gestiona el estado local y deja el punto de integración listo.
+/// Chat: historial guardado en el daemon + hilo con tokens en vivo, skills,
+/// fuentes de documentos y el medidor de coste de cada respuesta.
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
   @override
@@ -32,16 +23,12 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
-  int _active = 0;
-  int _tokens = 0;
 
-  late final List<_Conversation> _convos = [
-    _Conversation('Nueva conversación', [
-      _Msg('assistant',
-          'Hola 👋 Soy Magnus. Cuando conectes el daemon con un modelo montado, '
-          'tus mensajes se transmitirán por streaming aquí.'),
-    ]),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    context.read<ChatCubit>().load();
+  }
 
   @override
   void dispose() {
@@ -51,27 +38,17 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _send() {
-    final text = _input.text.trim();
-    if (text.isEmpty) return;
-    setState(() {
-      _convos[_active].messages.add(_Msg('user', text));
-      _convos[_active].messages.add(_Msg('assistant',
-          '⏳ Pendiente: conecta el endpoint `/chat` del daemon para recibir la respuesta del modelo.'));
-      _tokens += (text.length / 4).ceil(); // estimación simple de tokens
-      _input.clear();
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) {
-        _scroll.animateTo(_scroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
-      }
-    });
+    final text = _input.text;
+    if (text.trim().isEmpty) return;
+    _input.clear();
+    context.read<ChatCubit>().send(text);
   }
 
-  void _newConversation() {
-    setState(() {
-      _convos.insert(0, _Conversation('Nueva conversación', []));
-      _active = 0;
+  void _scrollToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) {
+        _scroll.jumpTo(_scroll.position.maxScrollExtent);
+      }
     });
   }
 
@@ -80,28 +57,23 @@ class _ChatPageState extends State<ChatPage> {
     final compact = Breakpoints.of(context) == ScreenSize.compact;
     return Material(
       color: Colors.transparent,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (!compact) ...[
-              SizedBox(width: 248, child: _History(
-                convos: _convos,
-                active: _active,
-                onSelect: (i) => setState(() => _active = i),
-                onNew: _newConversation,
-              )),
-              const SizedBox(width: 18),
+      child: BlocConsumer<ChatCubit, ChatState>(
+        listenWhen: (a, b) => a.messages != b.messages,
+        listener: (_, __) => _scrollToEnd(),
+        builder: (context, state) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!compact) ...[
+                SizedBox(width: 248, child: _History(state: state)),
+                const SizedBox(width: 18),
+              ],
+              Expanded(
+                child: _Thread(state: state, scroll: _scroll, input: _input, onSend: _send),
+              ),
             ],
-            Expanded(child: _Thread(
-              convo: _convos[_active],
-              scroll: _scroll,
-              input: _input,
-              tokens: _tokens,
-              onSend: _send,
-            )),
-          ],
+          ),
         ),
       ),
     );
@@ -109,20 +81,13 @@ class _ChatPageState extends State<ChatPage> {
 }
 
 class _History extends StatelessWidget {
-  const _History({
-    required this.convos,
-    required this.active,
-    required this.onSelect,
-    required this.onNew,
-  });
-  final List<_Conversation> convos;
-  final int active;
-  final ValueChanged<int> onSelect;
-  final VoidCallback onNew;
+  const _History({required this.state});
+  final ChatState state;
 
   @override
   Widget build(BuildContext context) {
     final t = MagnusTheme.of(context);
+    final cubit = context.read<ChatCubit>();
     return GlassCard(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -131,54 +96,30 @@ class _History extends StatelessWidget {
           MagnusButton(
             label: 'Nueva conversación',
             icon: LucideIcons.plus,
-            onTap: onNew,
+            onTap: state.sending ? null : cubit.newConversation,
           ),
           const SizedBox(height: 14),
           Text('HISTORIAL',
-              style: t.small.copyWith(
-                  fontSize: 10.5, letterSpacing: 1.2, color: t.textFaint)),
+              style: t.small.copyWith(fontSize: 10.5, letterSpacing: 1.2, color: t.textFaint)),
           const SizedBox(height: 8),
           Expanded(
-            child: ListView.separated(
-              itemCount: convos.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 4),
-              itemBuilder: (context, i) {
-                final selected = i == active;
-                final c = convos[i];
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => onSelect(i),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: selected ? t.accentSoft : const Color(0x00000000),
-                      borderRadius: BorderRadius.circular(t.radius),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(LucideIcons.messageCircle,
-                            size: 15,
-                            color: selected ? t.accent : t.textMuted),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            c.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: t.body.copyWith(
-                                color: selected ? t.accent : t.text,
-                                fontWeight: selected
-                                    ? FontWeight.w600
-                                    : FontWeight.w400),
-                          ),
-                        ),
-                      ],
-                    ),
+            child: state.conversations.isEmpty
+                ? Text('Aún no hay conversaciones.', style: t.small)
+                : ListView.separated(
+                    itemCount: state.conversations.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 4),
+                    itemBuilder: (context, i) {
+                      final c = state.conversations[i];
+                      final selected = c.id == state.activeId;
+                      return _HistoryItem(
+                        title: c.title,
+                        subtitle: c.model,
+                        selected: selected,
+                        onTap: () => cubit.open(c.id),
+                        onDelete: () => cubit.delete(c.id),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),
@@ -186,59 +127,186 @@ class _History extends StatelessWidget {
   }
 }
 
+class _HistoryItem extends StatefulWidget {
+  const _HistoryItem({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+    required this.onDelete,
+  });
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  @override
+  State<_HistoryItem> createState() => _HistoryItemState();
+}
+
+class _HistoryItemState extends State<_HistoryItem> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MagnusTheme.of(context);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: widget.selected ? t.accentSoft : (_hover ? t.surfaceAlt : const Color(0x00000000)),
+            borderRadius: BorderRadius.circular(t.radius),
+          ),
+          child: Row(
+            children: [
+              Icon(LucideIcons.messageCircle,
+                  size: 15, color: widget.selected ? t.accent : t.textMuted),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(widget.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: t.body.copyWith(
+                            color: widget.selected ? t.accent : t.text,
+                            fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w400)),
+                    Text(widget.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: t.small.copyWith(fontSize: 11, color: t.textFaint)),
+                  ],
+                ),
+              ),
+              if (_hover)
+                GestureDetector(
+                  onTap: widget.onDelete,
+                  child: Icon(LucideIcons.trash2, size: 14, color: t.textFaint),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Thread extends StatelessWidget {
   const _Thread({
-    required this.convo,
+    required this.state,
     required this.scroll,
     required this.input,
-    required this.tokens,
     required this.onSend,
   });
-  final _Conversation convo;
+  final ChatState state;
   final ScrollController scroll;
   final TextEditingController input;
-  final int tokens;
   final VoidCallback onSend;
 
   @override
   Widget build(BuildContext context) {
     final t = MagnusTheme.of(context);
+    final cubit = context.read<ChatCubit>();
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Barra superior: modelo + medidor de tokens (diferenciador)
         GlassCard(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(LucideIcons.zap, size: 16, color: t.warn),
-              const SizedBox(width: 8),
-              Text('Sin modelo cargado',
-                  style: t.body.copyWith(fontWeight: FontWeight.w600)),
-              const Spacer(),
-              Pill('$tokens tokens', color: t.info, icon: LucideIcons.coins),
-              const SizedBox(width: 8),
-              Pill(r'$0.00 ahorro', color: t.ok, icon: LucideIcons.piggyBank),
+              Row(
+                children: [
+                  Icon(LucideIcons.zap, size: 16, color: state.model == null ? t.warn : t.ok),
+                  const SizedBox(width: 8),
+                  Text('Modelo', style: t.small),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          if (state.models.isEmpty)
+                            Text('sin modelos descargados', style: t.small.copyWith(color: t.warn)),
+                          for (final m in state.models)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChipX(
+                                label: m.modelId,
+                                selected: m.modelId == state.model,
+                                onTap: () => cubit.selectModel(m.modelId),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Pill('${state.tokens} tokens', color: t.info, icon: LucideIcons.coins),
+                  const SizedBox(width: 8),
+                  Pill('${formatUsd(state.savings)} ahorro', color: t.ok, icon: LucideIcons.piggyBank),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text('Documentos', style: t.small),
+                  ChoiceChipX(
+                    label: 'ninguno',
+                    selected: state.collection == null,
+                    onTap: () => cubit.selectCollection(null),
+                  ),
+                  for (final c in state.collections)
+                    ChoiceChipX(
+                      label: c.name,
+                      icon: LucideIcons.bookOpen,
+                      selected: c.name == state.collection,
+                      onTap: () => cubit.selectCollection(c.name),
+                    ),
+                  const SizedBox(width: 12),
+                  Text('Razonar', style: t.small),
+                  ChoiceChipX(label: 'auto', selected: state.think == null, onTap: () => cubit.setThink(null)),
+                  ChoiceChipX(label: 'no', selected: state.think == false, onTap: () => cubit.setThink(false)),
+                  ChoiceChipX(label: 'sí', selected: state.think == true, onTap: () => cubit.setThink(true)),
+                ],
+              ),
             ],
           ),
         ),
+        if (state.error != null) ...[
+          const SizedBox(height: 10),
+          InlineNotice(state.error!, onClose: cubit.dismissError),
+        ],
         const SizedBox(height: 14),
         Expanded(
-          child: convo.messages.isEmpty
-              ? const EmptyState(
-                  icon: LucideIcons.messagesSquare,
-                  title: 'Empieza a chatear',
-                  message:
-                      'Escribe un mensaje abajo. Se transmitirá al modelo montado '
-                      'cuando el daemon exponga el endpoint de chat.',
+          child: state.messages.isEmpty
+              ? EmptyState(
+                  icon: state.models.isEmpty ? LucideIcons.download : LucideIcons.messagesSquare,
+                  title: state.models.isEmpty ? 'Descarga un modelo para empezar' : 'Empieza a chatear',
+                  message: state.models.isEmpty
+                      ? 'En Modelos → Para este equipo verás los que caben en tu hardware.'
+                      : 'Todo corre en tu máquina. Cada respuesta muestra cuánto costó en local '
+                          'y cuánto habría costado en la nube. Usa /resumir, /traducir… para las skills.',
                 )
               : ListView.builder(
                   controller: scroll,
-                  itemCount: convo.messages.length,
-                  itemBuilder: (context, i) => _Bubble(convo.messages[i]),
+                  itemCount: state.messages.length,
+                  itemBuilder: (context, i) => _Bubble(state.messages[i]),
                 ),
         ),
         const SizedBox(height: 14),
-        _Composer(input: input, onSend: onSend),
+        _Composer(input: input, onSend: onSend, enabled: !state.sending),
       ],
     );
   }
@@ -246,38 +314,155 @@ class _Thread extends StatelessWidget {
 
 class _Bubble extends StatelessWidget {
   const _Bubble(this.msg);
-  final _Msg msg;
+  final ChatBubble msg;
+
   @override
   Widget build(BuildContext context) {
     final t = MagnusTheme.of(context);
-    final isUser = msg.role == 'user';
+    final isUser = msg.isUser;
+    final tags = [...msg.skills, ...msg.sources];
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        constraints: const BoxConstraints(maxWidth: 560),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isUser ? t.accent : t.surfaceStrong,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(t.radiusLg),
-            topRight: Radius.circular(t.radiusLg),
-            bottomLeft: Radius.circular(isUser ? t.radiusLg : 4),
-            bottomRight: Radius.circular(isUser ? 4 : t.radiusLg),
-          ),
-          border: isUser ? null : Border.all(color: t.stroke),
+        constraints: const BoxConstraints(maxWidth: 640),
+        child: Column(
+          crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            if (tags.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [for (final tag in tags) Pill(tag, color: t.info)],
+                ),
+              ),
+            if (msg.thinking.isNotEmpty) _Thinking(msg: msg),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isUser ? t.accent : t.surfaceStrong,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(t.radiusLg),
+                  topRight: Radius.circular(t.radiusLg),
+                  bottomLeft: Radius.circular(isUser ? t.radiusLg : 4),
+                  bottomRight: Radius.circular(isUser ? 4 : t.radiusLg),
+                ),
+                border: isUser ? null : Border.all(color: t.stroke),
+              ),
+              child: msg.text.isEmpty && msg.streaming
+                  ? Text(msg.thinking.isEmpty ? 'Cargando el modelo…' : 'Razonando…',
+                      style: t.body.copyWith(color: t.textMuted))
+                  : SelectableText(
+                      msg.streaming ? '${msg.text}▍' : msg.text,
+                      style: t.body.copyWith(color: isUser ? t.onAccent : t.text),
+                    ),
+            ),
+            if (msg.error != null) ...[
+              const SizedBox(height: 6),
+              InlineNotice(msg.error!),
+            ],
+            if (msg.metrics != null) _MetricsLine(msg.metrics!),
+          ],
         ),
-        child: Text(msg.text,
-            style: t.body.copyWith(color: isUser ? t.onAccent : t.text)),
+      ),
+    );
+  }
+}
+
+class _Thinking extends StatefulWidget {
+  const _Thinking({required this.msg});
+  final ChatBubble msg;
+  @override
+  State<_Thinking> createState() => _ThinkingState();
+}
+
+class _ThinkingState extends State<_Thinking> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MagnusTheme.of(context);
+    final text = widget.msg.thinking.trim();
+    final preview = text.length > 160 ? '…${text.substring(text.length - 160)}' : text;
+    return GestureDetector(
+      onTap: () => setState(() => _open = !_open),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: t.surfaceAlt,
+            borderRadius: BorderRadius.circular(t.radius),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(LucideIcons.brain, size: 13, color: t.textFaint),
+                  const SizedBox(width: 6),
+                  Text(
+                      widget.msg.streaming && widget.msg.text.isEmpty
+                          ? 'Razonando…'
+                          : 'Razonamiento (${text.length} caracteres) · ${_open ? 'ocultar' : 'ver'}',
+                      style: t.small.copyWith(color: t.textFaint)),
+                ],
+              ),
+              if (_open || (widget.msg.streaming && widget.msg.text.isEmpty)) ...[
+                const SizedBox(height: 4),
+                Text(_open ? text : preview,
+                    style: t.small.copyWith(fontStyle: FontStyle.italic, color: t.textMuted)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricsLine extends StatelessWidget {
+  const _MetricsLine(this.m);
+  final dynamic m; // TurnMetrics
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MagnusTheme.of(context);
+    final saving = m.savingsUsd as double;
+    final parts = <String>[
+      '${m.tokensOut} tok',
+      if (m.tokensPerS != null) '${(m.tokensPerS as double).toStringAsFixed(0)} tok/s',
+      if (m.ttftS != null) '1er token ${(m.ttftS as double).toStringAsFixed(2)} s',
+      if (m.avgPowerW != null) '${(m.avgPowerW as double).toStringAsFixed(1)} W',
+      'local ${formatUsd(m.localCostUsd as double)}',
+      '${m.cloudReference} ${formatUsd(m.cloudCostUsd as double)}',
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, left: 4),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        children: [
+          Text(parts.join(' · '), style: t.small.copyWith(fontSize: 11, color: t.textFaint)),
+          Text(saving >= 0 ? 'ahorro ${formatUsd(saving)}' : 'sobrecoste ${formatUsd(-saving)}',
+              style: t.small.copyWith(
+                  fontSize: 11, fontWeight: FontWeight.w700, color: saving >= 0 ? t.ok : t.warn)),
+        ],
       ),
     );
   }
 }
 
 class _Composer extends StatelessWidget {
-  const _Composer({required this.input, required this.onSend});
+  const _Composer({required this.input, required this.onSend, required this.enabled});
   final TextEditingController input;
   final VoidCallback onSend;
+  final bool enabled;
+
   @override
   Widget build(BuildContext context) {
     final t = MagnusTheme.of(context);
@@ -287,45 +472,48 @@ class _Composer extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: TextField(
-              controller: input,
-              style: TextStyle(color: t.text, fontSize: 14),
-              minLines: 1,
-              maxLines: 5,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => onSend(),
-              decoration: InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                hintText: 'Escribe un mensaje a Magnus…',
-                hintStyle: TextStyle(color: t.textFaint),
+            // Enter envía; Shift+Enter hace salto de línea.
+            child: Focus(
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.enter &&
+                    !HardwareKeyboard.instance.isShiftPressed) {
+                  if (enabled) onSend();
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: TextField(
+                controller: input,
+                style: TextStyle(color: t.text, fontSize: 14),
+                minLines: 1,
+                maxLines: 6,
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  hintText: enabled ? 'Escribe un mensaje a Magnus…' : 'Magnus está respondiendo…',
+                  hintStyle: TextStyle(color: t.textFaint),
+                ),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          _SendButton(onTap: onSend),
+          GestureDetector(
+            onTap: enabled ? onSend : null,
+            child: Opacity(
+              opacity: enabled ? 1 : 0.45,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: t.accent,
+                  borderRadius: BorderRadius.circular(t.radius),
+                ),
+                child: Icon(LucideIcons.send, color: t.onAccent, size: 18),
+              ),
+            ),
+          ),
         ],
-      ),
-    );
-  }
-}
-
-class _SendButton extends StatelessWidget {
-  const _SendButton({required this.onTap});
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    final t = MagnusTheme.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: t.accent,
-          borderRadius: BorderRadius.circular(t.radius),
-        ),
-        child: Icon(LucideIcons.send, color: t.onAccent, size: 18),
       ),
     );
   }

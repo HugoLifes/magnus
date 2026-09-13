@@ -5,10 +5,16 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'core/di/injector.dart';
 import 'core/theme/design_system.dart';
 import 'core/theme/magnus_theme.dart';
+import 'features/agents/presentation/cubit/agents_cubit.dart';
+import 'features/agents/presentation/pages/agents_page.dart';
+import 'features/chat/presentation/cubit/chat_cubit.dart';
+import 'features/chat/presentation/pages/chat_page.dart';
 import 'features/models/presentation/bloc/models_bloc.dart';
+import 'features/models/presentation/cubit/catalog_cubit.dart';
+import 'features/models/presentation/cubit/overview_cubit.dart';
 import 'features/models/presentation/pages/dashboard_page.dart';
 import 'features/models/presentation/pages/models_page.dart';
-import 'features/chat/presentation/pages/chat_page.dart';
+import 'features/rag/presentation/cubit/rag_cubit.dart';
 import 'features/rag/presentation/pages/rag_page.dart';
 import 'features/resources/presentation/pages/resources_page.dart';
 import 'features/settings/presentation/cubit/settings_cubit.dart';
@@ -29,8 +35,9 @@ Widget magnusPage(int index) => switch (index) {
       0 => const DashboardPage(),
       1 => const ChatPage(),
       2 => const ModelsPage(),
-      3 => const RagPage(),
-      4 => const ResourcesPage(),
+      3 => const AgentsPage(),
+      4 => const RagPage(),
+      5 => const ResourcesPage(),
       _ => const SettingsPage(),
     };
 
@@ -38,7 +45,8 @@ const magnusDestinations = <NavDest>[
   NavDest('Inicio', LucideIcons.gauge),
   NavDest('Chat', LucideIcons.messageCircle),
   NavDest('Modelos', LucideIcons.cpu),
-  NavDest('RAG', LucideIcons.brain),
+  NavDest('Agentes', LucideIcons.bot),
+  NavDest('Documentos', LucideIcons.brain),
   NavDest('Recursos', LucideIcons.heartPulse),
   NavDest('Ajustes', LucideIcons.settings),
 ];
@@ -59,6 +67,11 @@ class MagnusApp extends StatelessWidget {
         BlocProvider<ModelsBloc>(
           create: (_) => sl<ModelsBloc>()..add(const HardwareRequested()),
         ),
+        BlocProvider<OverviewCubit>.value(value: sl<OverviewCubit>()..load()),
+        BlocProvider<ChatCubit>.value(value: sl<ChatCubit>()),
+        BlocProvider<CatalogCubit>.value(value: sl<CatalogCubit>()),
+        BlocProvider<RagCubit>.value(value: sl<RagCubit>()),
+        BlocProvider<AgentsCubit>.value(value: sl<AgentsCubit>()),
       ],
       child: BlocBuilder<SettingsCubit, SettingsState>(
         buildWhen: (a, b) =>

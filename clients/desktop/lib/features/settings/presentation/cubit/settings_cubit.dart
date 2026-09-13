@@ -12,6 +12,7 @@ class SettingsState extends Equatable {
   const SettingsState({
     required this.design,
     required this.daemonUrl,
+    required this.hasToken,
     required this.appearance,
     required this.fontFamily,
     required this.useSystemAccent,
@@ -19,6 +20,9 @@ class SettingsState extends Equatable {
 
   final DesignSystem design;
   final String daemonUrl;
+
+  /// Solo se expone si hay token, nunca su valor.
+  final bool hasToken;
   final Appearance appearance;
   final String fontFamily;
   final bool useSystemAccent;
@@ -26,6 +30,7 @@ class SettingsState extends Equatable {
   SettingsState copyWith({
     DesignSystem? design,
     String? daemonUrl,
+    bool? hasToken,
     Appearance? appearance,
     String? fontFamily,
     bool? useSystemAccent,
@@ -33,6 +38,7 @@ class SettingsState extends Equatable {
       SettingsState(
         design: design ?? this.design,
         daemonUrl: daemonUrl ?? this.daemonUrl,
+        hasToken: hasToken ?? this.hasToken,
         appearance: appearance ?? this.appearance,
         fontFamily: fontFamily ?? this.fontFamily,
         useSystemAccent: useSystemAccent ?? this.useSystemAccent,
@@ -40,11 +46,11 @@ class SettingsState extends Equatable {
 
   @override
   List<Object?> get props =>
-      [design, daemonUrl, appearance, fontFamily, useSystemAccent];
+      [design, daemonUrl, hasToken, appearance, fontFamily, useSystemAccent];
 }
 
-/// Gestiona el diseño elegido (Windows/Material/Apple) y la URL del daemon,
-/// persistiéndolos en disco. Cambiar el diseño re-renderiza toda la app.
+/// Gestiona el diseño elegido (Windows/Material/Apple), la URL y el token del
+/// daemon, persistiéndolos en disco. Cambiar el diseño re-renderiza toda la app.
 class SettingsCubit extends Cubit<SettingsState> {
   SettingsCubit(this._prefs, this._dio)
       : super(SettingsState(
@@ -54,12 +60,14 @@ class SettingsCubit extends Cubit<SettingsState> {
             fallback: DesignSystem.forPlatform(defaultTargetPlatform),
           ),
           daemonUrl: _prefs.getString(AppConstants.prefDaemonUrl) ?? AppConstants.defaultDaemonUrl,
+          hasToken: (_prefs.getString(AppConstants.prefDaemonToken) ?? '').isNotEmpty,
           appearance: Appearance.fromName(_prefs.getString(AppConstants.prefAppearance)),
           fontFamily: _prefs.getString(AppConstants.prefFont) ?? AppConstants.defaultFont,
           useSystemAccent:
               _prefs.getBool(AppConstants.prefUseSystemAccent) ?? true,
         )) {
     _dio.baseUrl = state.daemonUrl;
+    _dio.token = _prefs.getString(AppConstants.prefDaemonToken);
   }
 
   final SharedPreferences _prefs;
@@ -90,5 +98,19 @@ class SettingsCubit extends Cubit<SettingsState> {
     await _prefs.setString(AppConstants.prefDaemonUrl, clean);
     _dio.baseUrl = clean;
     emit(state.copyWith(daemonUrl: clean));
+  }
+
+  /// Guarda el token (vacío = quitarlo). Va en las preferencias de la app: en la
+  /// beta no se usa el llavero del sistema porque flutter_secure_storage exige
+  /// ATL en Windows y rompía la compilación.
+  Future<void> setDaemonToken(String token) async {
+    final clean = token.trim();
+    if (clean.isEmpty) {
+      await _prefs.remove(AppConstants.prefDaemonToken);
+    } else {
+      await _prefs.setString(AppConstants.prefDaemonToken, clean);
+    }
+    _dio.token = clean;
+    emit(state.copyWith(hasToken: clean.isNotEmpty));
   }
 }

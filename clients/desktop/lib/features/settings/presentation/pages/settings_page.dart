@@ -10,6 +10,8 @@ import '../../../../core/theme/design_system.dart';
 import '../../../../core/theme/magnus_theme.dart';
 import '../../../../shared/widgets/ui.dart';
 import '../cubit/settings_cubit.dart';
+import '../widgets/daemon_token_field.dart';
+import '../widgets/meter_settings_card.dart';
 
 /// Ajustes: diseño nativo, apariencia (claro/oscuro) y URL del daemon.
 class SettingsPage extends StatefulWidget {
@@ -267,9 +269,15 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 16),
+                      const DaemonTokenField(),
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                // --- Medidor (se guarda en el daemon) ---
+                MeterSettingsCard(key: ValueKey(state.daemonUrl)),
               ],
             );
           },
