@@ -31,8 +31,8 @@ toda la familia NVIDIA:
 | Catálogo recomendado por hardware | ✅ | `/catalog`, `magnus catalog` |
 | Guarda de memoria al cargar | ✅ | Se niega en unificada, libera caché sin root, reintenta una vez |
 | Configuración / carpeta de datos por SO | ✅ | `config.json` + variables de entorno; `/settings` |
-| Skills | ❌ | |
-| Memoria + RAG local | ❌ | Flutter tiene el formulario sin backend |
+| Skills | ✅ | `SKILL.md` con recarga en caliente; `/skills`, `magnus skill`; 3 incluidas |
+| Memoria + RAG local | ✅ | Embeddings locales vía Ollama, SQLite; `/rag`, `/memory`, `magnus rag`/`mem` |
 | Agentes con herramientas | ❌ | |
 | Auth si se expone en red | ❌ | Hoy solo loopback, correcto por defecto |
 | Cliente Flutter conectado | ❌ | Chat, descargas, recursos en vivo |

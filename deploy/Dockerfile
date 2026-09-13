@@ -24,6 +24,8 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY core ./core
 COPY daemon ./daemon
 COPY cli ./cli
+COPY skills ./skills
+COPY agents ./agents
 
 EXPOSE 8420
 # Escucha en 0.0.0.0 dentro del contenedor; expón el puerto con cuidado (ver compose).

@@ -177,13 +177,25 @@ class OllamaClient:
         for _ in self.pull_stream(model_id):
             pass
 
+    def _keep_alive(self, model_id: str, keep_alive: int) -> None:
+        try:
+            self._post("/api/generate",
+                       {"model": model_id, "prompt": "", "keep_alive": keep_alive, "stream": False})
+        except RuntimeManagerError as exc:
+            if "does not support generate" not in str(exc):
+                raise
+            # Modelos de embeddings (nomic-embed-text, bge-m3): Ollama no los
+            # carga con generate — medido con 0.34.0 — pero sí con embed.
+            self._post("/api/embed",
+                       {"model": model_id, "input": "magnus", "keep_alive": keep_alive})
+
     def load_into_vram(self, model_id: str) -> None:
         """Carga el modelo en VRAM con keep_alive=-1 (no expulsar)."""
-        self._post("/api/generate", {"model": model_id, "prompt": "", "keep_alive": -1, "stream": False})
+        self._keep_alive(model_id, -1)
 
     def unload_from_vram(self, model_id: str) -> None:
         """Libera VRAM del modelo sin borrar los pesos del disco."""
-        self._post("/api/generate", {"model": model_id, "prompt": "", "keep_alive": 0, "stream": False})
+        self._keep_alive(model_id, 0)
 
     def delete(self, model_id: str) -> None:
         """Elimina el modelo del disco local de Ollama."""

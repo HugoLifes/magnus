@@ -6,10 +6,12 @@ Contrato único para la CLI y los clientes Flutter:
 - Modelos: /catalog /models /models/local /models/loaded, descarga con progreso,
   carga con guarda de memoria, liberación y borrado
 - Chat + medidor: WebSocket /chat, POST /chat, /conversations, /usage
+- Skills: /skills
+- Documentos y memoria: /rag/*, /memory
 - Ajustes: /settings
 
-Skills, memoria/RAG y agentes se añaden encima de ESTA misma app, sin romper el
-contrato. Ver docs/AGENT_HANDOFF.md y docs/BETA.md.
+El runtime de agentes se añade encima de ESTA misma app, sin romper el contrato.
+Ver docs/AGENT_HANDOFF.md y docs/BETA.md.
 
 Arranque:  magnus serve     (o)     uvicorn daemon.app:api --port 8420
 """
@@ -19,6 +21,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -38,11 +41,28 @@ from core import (
     resolve_target_vram_gb,
     unified_memory_note,
 )
+from core.agent import (
+    BUILTIN_AGENTS_DIR,
+    TOOLS,
+    AgentError,
+    AgentRegistry,
+    AgentRunner,
+    build_agent,
+)
 from core.catalog import recommend, usable_gib
 from core.chat import ChatError, ChatService, OllamaChatClient
 from core.config import Settings, data_dir, load_settings, save_settings
 from core.model_registry import MODEL_REGISTRY
 from core.platform import detect_platform
+from core.rag import (
+    DEFAULT_CHUNK_CHARS,
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_OVERLAP_CHARS,
+    OllamaEmbedder,
+    RagError,
+    RagStore,
+)
+from core.skills import BUILTIN_SKILLS_DIR, SkillError, SkillRegistry, build_skill
 from core.store import Store
 from core.telemetry import sample_system
 
@@ -74,6 +94,21 @@ def get_runtime_manager() -> RuntimeManager:
 
 
 @lru_cache(maxsize=1)
+def get_skill_registry() -> SkillRegistry:
+    return SkillRegistry(data_dir() / "skills", BUILTIN_SKILLS_DIR)
+
+
+@lru_cache(maxsize=1)
+def get_rag_store() -> RagStore:
+    url = get_settings().ollama_url
+    manager = get_runtime_manager()
+    return RagStore(
+        data_dir() / "magnus.db",
+        lambda model: OllamaEmbedder(url, model, before=manager.ensure_loaded),
+    )
+
+
+@lru_cache(maxsize=1)
 def get_chat_service() -> ChatService:
     settings = get_settings()
     return ChatService(
@@ -83,12 +118,120 @@ def get_chat_service() -> ChatService:
         client=OllamaChatClient(settings.ollama_url),
         power_sampler=lambda: sample_system().power_w,
         ensure_loaded=get_runtime_manager().ensure_loaded,
+        skills=get_skill_registry(),
+        rag=get_rag_store(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_agent_registry() -> AgentRegistry:
+    return AgentRegistry(data_dir() / "agents", BUILTIN_AGENTS_DIR)
+
+
+@lru_cache(maxsize=1)
+def get_agent_runner() -> AgentRunner:
+    settings = get_settings()
+    return AgentRunner(
+        store=get_store(),
+        settings=settings,
+        platform=detect_platform(),
+        client=OllamaChatClient(settings.ollama_url),
+        power_sampler=lambda: sample_system().power_w,
+        ensure_loaded=get_runtime_manager().ensure_loaded,
+        skills=get_skill_registry(),
+        rag=get_rag_store(),
     )
 
 
 StoreDep = Annotated[Store, Depends(get_store)]
 ManagerDep = Annotated[RuntimeManager, Depends(get_runtime_manager)]
 ChatDep = Annotated[ChatService, Depends(get_chat_service)]
+SkillsDep = Annotated[SkillRegistry, Depends(get_skill_registry)]
+RagDep = Annotated[RagStore, Depends(get_rag_store)]
+AgentsDep = Annotated[AgentRegistry, Depends(get_agent_registry)]
+RunnerDep = Annotated[AgentRunner, Depends(get_agent_runner)]
+
+
+# ---------------------------------------------------------------------------
+# Agentes (Fase 1.5)
+# ---------------------------------------------------------------------------
+
+
+class AgentBody(BaseModel):
+    description: str
+    system: str = ""
+    model: str | None = None
+    skills: list[str] = []
+    tools: list[str] = []
+    collection: str | None = None
+    max_steps: int = 6
+    max_output_tokens: int = 4000
+    think: bool | None = None
+
+
+class AgentRunRequest(BaseModel):
+    message: str
+    model: str | None = None
+    conversation_id: str | None = None
+
+
+@api.get("/tools")
+def tools_list() -> dict:
+    """Herramientas que un agente puede usar. Todas incluidas y seguras."""
+    return {"tools": [{"name": t.name, "description": t.description} for t in TOOLS.values()]}
+
+
+@api.get("/agents")
+def agents_list(registry: AgentsDep) -> dict:
+    return {"agents": [a.to_dict() for a in registry.list()], "errors": registry.errors}
+
+
+@api.get("/agents/{name}")
+def agent_detail(name: str, registry: AgentsDep) -> dict:
+    spec = registry.get(name)
+    if spec is None:
+        raise HTTPException(status_code=404, detail=f"No existe el agente '{name}'.")
+    return spec.to_dict()
+
+
+@api.put("/agents/{name}")
+def agent_put(name: str, req: AgentBody, registry: AgentsDep) -> dict:
+    """Crea o reemplaza un agente del usuario."""
+    try:
+        return registry.save(build_agent({"name": name, **req.model_dump()})).to_dict()
+    except AgentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@api.delete("/agents/{name}")
+def agent_delete(name: str, registry: AgentsDep) -> dict:
+    try:
+        deleted = registry.delete(name)
+    except AgentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"No existe el agente '{name}'.")
+    return {"deleted": name}
+
+
+@api.post("/agents/{name}/run")
+def agent_run(name: str, req: AgentRunRequest, registry: AgentsDep,
+              runner: RunnerDep) -> StreamingResponse:
+    """Ejecuta un agente. NDJSON: start, tool_call, tool_result, answer, done (o error)."""
+    spec = registry.get(name)
+    if spec is None:
+        raise HTTPException(status_code=404, detail=f"No existe el agente '{name}'.")
+
+    def lines() -> Iterator[bytes]:
+        try:
+            for event in runner.run(spec, req.message, model=req.model,
+                                    conversation_id=req.conversation_id):
+                yield (json.dumps(event, ensure_ascii=False) + "\n").encode()
+        except AgentError as exc:
+            yield (json.dumps({"type": "error", "detail": str(exc)},
+                              ensure_ascii=False) + "\n").encode()
+
+    return StreamingResponse(lines(), media_type="application/x-ndjson")
 
 
 # ---------------------------------------------------------------------------
@@ -283,15 +426,30 @@ class ChatRequest(BaseModel):
     conversation_id: str | None = None
     system: str | None = None
     options: dict[str, Any] | None = None
+    # Colección de documentos en la que buscar antes de responder.
+    collection: str | None = None
+    # None: automático (activa donde caben varios modelos a la vez).
+    use_memory: bool | None = None
+    rag_k: int = 4
+    # Razonamiento en modelos que razonan (qwen3, deepseek-r1). None: el del modelo.
+    think: bool | None = None
+
+
+def _stream_chat(service: ChatService, req: ChatRequest) -> Iterator[dict]:
+    return service.stream(
+        model=req.model, message=req.message, conversation_id=req.conversation_id,
+        system=req.system, options=req.options, collection=req.collection,
+        use_memory=req.use_memory, rag_k=req.rag_k, think=req.think,
+    )
 
 
 @api.websocket("/chat")
 async def chat_ws(websocket: WebSocket, service: ChatDep) -> None:
     """Chat con tokens en vivo.
 
-    El cliente manda `{"model", "message", "conversation_id"?, "system"?}` por
-    turno y recibe `start`, muchos `token` y un `done` con las métricas del
-    turno (o `error`). La conexión sirve para varios turnos seguidos.
+    El cliente manda un `ChatRequest` por turno y recibe `start` (con skills y
+    fuentes), muchos `token` y un `done` con las métricas del turno (o `error`).
+    La conexión sirve para varios turnos seguidos.
     """
     await websocket.accept()
     try:
@@ -303,12 +461,8 @@ async def chat_ws(websocket: WebSocket, service: ChatDep) -> None:
                     {"type": "error", "detail": "Cada turno necesita 'model' y 'message'."}
                 )
                 continue
-            events = service.stream(
-                model=req.model, message=req.message, conversation_id=req.conversation_id,
-                system=req.system, options=req.options,
-            )
             try:
-                async for event in iterate_in_threadpool(events):
+                async for event in iterate_in_threadpool(_stream_chat(service, req)):
                     await websocket.send_json(event)
             except ChatError as exc:
                 await websocket.send_json({"type": "error", "detail": str(exc)})
@@ -320,13 +474,13 @@ async def chat_ws(websocket: WebSocket, service: ChatDep) -> None:
 def chat_once(req: ChatRequest, service: ChatDep) -> dict:
     """Un turno sin streaming: devuelve la respuesta completa con sus métricas."""
     try:
-        events = list(service.stream(
-            model=req.model, message=req.message, conversation_id=req.conversation_id,
-            system=req.system, options=req.options,
-        ))
+        events = list(_stream_chat(service, req))
     except ChatError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return events[-1]
+    done = events[-1]
+    done["skills"] = events[0].get("skills", [])
+    done["sources"] = events[0].get("sources", [])
+    return done
 
 
 @api.get("/conversations")
@@ -359,6 +513,194 @@ def usage(store: StoreDep, since: float | None = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Skills
+# ---------------------------------------------------------------------------
+
+
+class SkillBody(BaseModel):
+    description: str
+    body: str
+    triggers: list[str] = []
+    tools: list[str] = []
+
+
+class ResolveRequest(BaseModel):
+    message: str
+
+
+@api.get("/skills")
+def skills_list(registry: SkillsDep) -> dict:
+    """Skills disponibles (incluidas y del usuario) y las que tienen errores."""
+    return {
+        "skills": [s.to_dict(include_body=False) for s in registry.list()],
+        "errors": registry.errors,
+    }
+
+
+@api.get("/skills/{name}")
+def skill_detail(name: str, registry: SkillsDep) -> dict:
+    skill = registry.get(name)
+    if skill is None:
+        raise HTTPException(status_code=404, detail=f"No existe la skill '{name}'.")
+    return skill.to_dict()
+
+
+@api.put("/skills/{name}")
+def skill_put(name: str, req: SkillBody, registry: SkillsDep) -> dict:
+    """Crea o reemplaza una skill del usuario. Surte efecto en el siguiente mensaje."""
+    try:
+        skill = build_skill(name, req.description, req.body, req.triggers, req.tools)
+        return registry.save(skill).to_dict()
+    except SkillError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@api.delete("/skills/{name}")
+def skill_delete(name: str, registry: SkillsDep) -> dict:
+    try:
+        deleted = registry.delete(name)
+    except SkillError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"No existe la skill '{name}'.")
+    return {"deleted": name}
+
+
+@api.post("/skills/reload")
+def skills_reload(registry: SkillsDep) -> dict:
+    """Relee las skills del disco (también ocurre solo al detectar cambios)."""
+    errors = registry.reload()
+    return {"skills": [s.name for s in registry.list()], "errors": errors}
+
+
+@api.post("/skills/resolve")
+def skills_resolve(req: ResolveRequest, registry: SkillsDep) -> dict:
+    """Qué skills se aplicarían a un mensaje, sin mandarlo al modelo."""
+    return {"skills": [s.name for s in registry.resolve(req.message)]}
+
+
+# ---------------------------------------------------------------------------
+# Documentos (RAG) y memoria
+# ---------------------------------------------------------------------------
+
+
+class CollectionRequest(BaseModel):
+    name: str
+    embedding_model: str = DEFAULT_EMBEDDING_MODEL
+    chunk_chars: int = DEFAULT_CHUNK_CHARS
+    overlap_chars: int = DEFAULT_OVERLAP_CHARS
+
+
+class IngestRequest(BaseModel):
+    collection: str
+    # Archivos o carpetas de ESTA máquina (el daemon los lee; por defecto solo
+    # escucha en loopback).
+    paths: list[str] = []
+    # O texto directo, p. ej. pegado desde el cliente.
+    text: str | None = None
+    source: str = "texto pegado"
+
+
+class SearchRequest(BaseModel):
+    collection: str
+    query: str
+    k: int = 5
+
+
+class MemoryRequest(BaseModel):
+    text: str
+
+
+class MemorySearchRequest(BaseModel):
+    query: str
+    k: int = 5
+
+
+def _rag_call(fn):
+    try:
+        return fn()
+    except RagError as exc:
+        status = 404 if str(exc).startswith("No existe") else 400
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+
+
+@api.get("/rag/collections")
+def rag_collections(store: RagDep) -> dict:
+    return {"collections": [c.to_dict() for c in store.list_collections()]}
+
+
+@api.post("/rag/collections")
+def rag_collection_create(req: CollectionRequest, store: RagDep) -> dict:
+    return _rag_call(lambda: store.create_collection(
+        req.name, req.embedding_model, req.chunk_chars, req.overlap_chars).to_dict())
+
+
+@api.delete("/rag/collections/{name}")
+def rag_collection_delete(name: str, store: RagDep) -> dict:
+    _rag_call(lambda: store.delete_collection(name))
+    return {"deleted": name}
+
+
+@api.get("/rag/collections/{name}/documents")
+def rag_documents(name: str, store: RagDep) -> dict:
+    return {"documents": _rag_call(lambda: store.list_documents(name))}
+
+
+@api.delete("/rag/collections/{name}/documents/{document_id}")
+def rag_document_delete(name: str, document_id: str, store: RagDep) -> dict:
+    if not _rag_call(lambda: store.delete_document(name, document_id)):
+        raise HTTPException(status_code=404, detail="Documento no encontrado.")
+    return {"deleted": document_id}
+
+
+@api.post("/rag/ingest")
+def rag_ingest(req: IngestRequest, store: RagDep) -> dict:
+    """Indexa archivos/carpetas locales o un texto. Calcula embeddings: puede tardar."""
+    if not req.paths and not req.text:
+        raise HTTPException(status_code=400, detail="Indica 'paths' o 'text'.")
+    result: dict = {"indexed": 0, "skipped": 0, "chunks": 0, "errors": {}}
+    if req.text:
+        r = _rag_call(lambda: store.ingest_text(req.collection, req.text, req.source))
+        result["skipped" if r["skipped"] else "indexed"] += 1
+        result["chunks"] += r["chunks"]
+    for path in req.paths:
+        r = _rag_call(lambda p=path: store.ingest_path(req.collection, Path(p)))
+        for key in ("indexed", "skipped", "chunks"):
+            result[key] += r[key]
+        result["errors"].update(r["errors"])
+    return result
+
+
+@api.post("/rag/search")
+def rag_search(req: SearchRequest, store: RagDep) -> dict:
+    hits = _rag_call(lambda: store.search(req.collection, req.query, req.k))
+    return {"hits": [h.to_dict() for h in hits]}
+
+
+@api.get("/memory")
+def memory_list(store: RagDep) -> dict:
+    return {"memories": [m.to_dict() for m in store.list_memories()]}
+
+
+@api.post("/memory")
+def memory_add(req: MemoryRequest, store: RagDep) -> dict:
+    return _rag_call(lambda: store.add_memory(req.text)).to_dict()
+
+
+@api.delete("/memory/{memory_id}")
+def memory_delete(memory_id: int, store: RagDep) -> dict:
+    if not store.delete_memory(memory_id):
+        raise HTTPException(status_code=404, detail="Memoria no encontrada.")
+    return {"deleted": memory_id}
+
+
+@api.post("/memory/search")
+def memory_search(req: MemorySearchRequest, store: RagDep) -> dict:
+    hits = _rag_call(lambda: store.search_memories(req.query, req.k))
+    return {"memories": [m.to_dict() for m in hits]}
+
+
+# ---------------------------------------------------------------------------
 # Ajustes
 # ---------------------------------------------------------------------------
 
@@ -375,7 +717,7 @@ def settings_put(changes: dict[str, Any]) -> dict:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     # Los servicios leen los ajustes al crearse: se reconstruyen con los nuevos.
-    get_settings.cache_clear()
-    get_runtime_manager.cache_clear()
-    get_chat_service.cache_clear()
+    for cached in (get_settings, get_runtime_manager, get_rag_store, get_chat_service,
+                   get_agent_runner):
+        cached.cache_clear()
     return updated.to_dict()

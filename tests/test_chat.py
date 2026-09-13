@@ -25,8 +25,9 @@ class FakeClient:
         self.params = params
         self.calls: list[list[dict]] = []
 
-    def stream_chat(self, model, messages, options=None):
+    def stream_chat(self, model, messages, options=None, think=None):
         self.calls.append(list(messages))
+        self.think = think
         yield from self.chunks
 
     def parameter_size_b(self, model):
@@ -70,6 +71,18 @@ def test_turno_completo(service_factory):
     assert msgs[1].metrics["tokens_out"] == 8
 
 
+def test_razonamiento_va_aparte(service_factory):
+    chunks = [
+        {"message": {"role": "assistant", "content": "", "thinking": "Pienso..."}, "done": False},
+        {"message": {"role": "assistant", "content": "Hola"}, "done": False},
+        {"message": {"role": "assistant", "content": ""}, "done": True, "eval_count": 3},
+    ]
+    svc, _, _ = service_factory(client=FakeClient(chunks))
+    events = list(svc.stream(model="qwen3:0.6b", message="hola"))
+    assert [e["type"] for e in events] == ["start", "thinking", "token", "done"]
+    assert events[-1]["content"] == "Hola"  # el razonamiento no se guarda como respuesta
+
+
 def test_segundo_turno_lleva_el_historial(service_factory):
     svc, client, _ = service_factory()
     first = list(svc.stream(model="m", message="Primero", system="Sé breve"))
@@ -91,6 +104,85 @@ def test_mensaje_vacio(service_factory):
     svc, _, _ = service_factory()
     with pytest.raises(ChatError, match="vacío"):
         list(svc.stream(model="m", message="   "))
+
+
+def test_skill_por_invocacion_llega_como_system(service_factory, tmp_path):
+    from core.skills import SkillRegistry, build_skill
+
+    skills = SkillRegistry(tmp_path / "skills")
+    skills.save(build_skill("resumir", "Resume textos.", "Resume en viñetas.", ["resume"]))
+    svc, client, store = service_factory()
+    svc._skills = skills
+
+    events = list(svc.stream(model="m", message="/resumir El texto largo", system="Sé breve"))
+    assert events[0]["skills"] == ["resumir"]
+    enviado = client.calls[-1]
+    assert enviado[0]["role"] == "system"
+    assert enviado[0]["content"].startswith("Sé breve") and "## Skill: resumir" in enviado[0]["content"]
+    assert enviado[-1] == {"role": "user", "content": "El texto largo"}  # sin "/resumir"
+    # En la conversación queda tal como lo escribió el usuario.
+    assert store.messages(events[-1]["conversation_id"])[0].content == "/resumir El texto largo"
+
+
+def test_sin_skills_que_apliquen_no_hay_system(service_factory, tmp_path):
+    from core.skills import SkillRegistry
+
+    svc, client, _ = service_factory()
+    svc._skills = SkillRegistry(tmp_path / "vacio")
+    events = list(svc.stream(model="m", message="hola"))
+    assert events[0]["skills"] == []
+    assert client.calls[-1][0]["role"] == "user"
+
+
+def test_rag_inyecta_fragmentos_con_fuentes(service_factory, tmp_path):
+    from core.rag import RagStore
+    from tests.test_rag import fake_embedder
+
+    rag = RagStore(tmp_path / "rag.db", fake_embedder)
+    rag.create_collection("manuales")
+    rag.ingest_text("manuales", "El Jetson Orin Nano tiene 8 GB de memoria unificada.",
+                    "jetson.md")
+    svc, client, _ = service_factory()
+    svc._rag = rag
+
+    events = list(svc.stream(model="m", message="¿cuánta memoria tiene el jetson?",
+                             collection="manuales"))
+    assert events[0]["sources"][0]["title"] == "jetson.md"
+    system = client.calls[-1][0]
+    assert system["role"] == "system" and "[1] (jetson.md)" in system["content"]
+    rag.close()
+
+
+def test_rag_coleccion_inexistente_no_deja_nada_guardado(service_factory, tmp_path):
+    from core.rag import RagStore
+    from tests.test_rag import fake_embedder
+
+    rag = RagStore(tmp_path / "rag.db", fake_embedder)
+    svc, _, store = service_factory()
+    svc._rag = rag
+    with pytest.raises(ChatError, match="No existe la colección"):
+        list(svc.stream(model="m", message="hola", collection="fantasma"))
+    assert store.list_conversations() == []
+    rag.close()
+
+
+def test_memoria_automatica_segun_el_equipo(service_factory, tmp_path):
+    from core.rag import RagStore
+    from tests.test_rag import fake_embedder
+
+    rag = RagStore(tmp_path / "rag.db", fake_embedder)
+    rag.add_memory("El usuario trabaja con un Jetson Orin Nano")
+    svc, client, _ = service_factory()  # perfil Jetson: un modelo a la vez
+    svc._rag = rag
+
+    # Pregunta con varias palabras en común: el embedder falso es bolsa de palabras.
+    pregunta = "¿el usuario trabaja con un jetson orin?"
+    list(svc.stream(model="m", message=pregunta))
+    assert client.calls[-1][0]["role"] == "user"  # en Jetson no se usa sola
+
+    list(svc.stream(model="m", message=pregunta, use_memory=True))
+    assert "Jetson Orin Nano" in client.calls[-1][0]["content"]
+    rag.close()
 
 
 def test_referencia_fija_y_coste_de_hardware(service_factory):

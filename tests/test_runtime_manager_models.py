@@ -155,6 +155,42 @@ def test_progreso_sin_ollama(monkeypatch):
         list(mgr.pull("x"))
 
 
+def test_modelo_de_embeddings_se_carga_con_embed(monkeypatch):
+    from core.runtime_manager import OllamaClient
+
+    client = OllamaClient()
+    llamadas = []
+
+    def post(path, body):
+        llamadas.append((path, body.get("keep_alive")))
+        if path == "/api/generate":
+            raise RuntimeManagerError('Ollama respondió 400: {"error":"\\"nomic-embed-text\\" '
+                                      'does not support generate"}')
+        return {}
+
+    monkeypatch.setattr(client, "_post", post)
+    client.load_into_vram("nomic-embed-text")
+    client.unload_from_vram("nomic-embed-text")
+    assert llamadas == [("/api/generate", -1), ("/api/embed", -1),
+                        ("/api/generate", 0), ("/api/embed", 0)]
+
+
+def test_otro_error_de_carga_no_usa_embed(monkeypatch):
+    from core.runtime_manager import OllamaClient
+
+    client = OllamaClient()
+    llamadas = []
+
+    def post(path, body):
+        llamadas.append(path)
+        raise RuntimeManagerError("Ollama respondió 500: cudaMalloc failed: out of memory")
+
+    monkeypatch.setattr(client, "_post", post)
+    with pytest.raises(RuntimeManagerError, match="out of memory"):
+        client.load_into_vram("qwen3:0.6b")
+    assert llamadas == ["/api/generate"]
+
+
 def test_error_de_ollama_viejo_es_accionable():
     # Mensaje real del registro con Ollama 0.6.5 al pedir qwen3.
     real = ("pull model manifest: 412: \nThe model you are attempting to pull requires a "

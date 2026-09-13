@@ -82,11 +82,365 @@ def _print_metrics(m: dict) -> None:
     console.print(f"[dim]{' · '.join(parts)} ·[/dim] {verdict}")
 
 
+skill_app = typer.Typer(help="Skills: instrucciones reutilizables que se aplican en el chat.")
+app.add_typer(skill_app, name="skill")
+
+
+def _skill_registry():
+    # Import perezoso: PyYAML solo hace falta en los comandos de skills y chat.
+    from core.skills import BUILTIN_SKILLS_DIR, SkillRegistry
+
+    return SkillRegistry(data_dir() / "skills", BUILTIN_SKILLS_DIR)
+
+
+@skill_app.command("list")
+def skill_list() -> None:
+    """Skills disponibles: las incluidas con Magnus y las tuyas."""
+    registry = _skill_registry()
+    table = Table(title="Skills")
+    for col in ("Nombre", "Origen", "Disparadores", "Descripción"):
+        table.add_column(col)
+    for s in registry.list():
+        origin = "incluida" if s.source == "builtin" else "tuya"
+        table.add_row(f"/{s.name}", origin, ", ".join(s.triggers) or "—", s.description)
+    console.print(table)
+    for folder, error in registry.errors.items():
+        console.print(f"[yellow]• {folder}: {error}[/yellow]")
+    console.print(f"[dim]Tus skills viven en {registry.user_dir}[/dim]")
+
+
+@skill_app.command("show")
+def skill_show(name: str = typer.Argument(..., help="Nombre de la skill.")) -> None:
+    """Muestra una skill completa."""
+    skill = _skill_registry().get(name)
+    if skill is None:
+        console.print(f"[red]No existe la skill '{name}'.[/red]")
+        raise typer.Exit(code=1)
+    console.print(f"[bold]/{skill.name}[/bold] — {skill.description}")
+    console.print(f"[dim]Disparadores: {', '.join(skill.triggers) or '—'} · {skill.path}[/dim]\n")
+    console.out(skill.body, highlight=False)
+
+
+@skill_app.command("new")
+def skill_new(
+    name: str = typer.Argument(..., help="Nombre en minúsculas con guiones, p. ej. 'correo-formal'."),
+    description: str = typer.Option(..., "--descripcion", "-d", help="Para qué sirve."),
+    triggers: list[str] = typer.Option(None, "--disparador", "-t",
+                                       help="Palabra que la activa (repetible)."),
+) -> None:
+    """Crea una skill tuya con una plantilla lista para editar."""
+    from core.skills import SkillError, build_skill
+
+    registry = _skill_registry()
+    body = ("Escribe aquí las instrucciones que debe seguir el modelo cuando se use esta "
+            "skill.\n\n- Qué hacer\n- Qué evitar\n- Formato de la respuesta\n")
+    try:
+        saved = registry.save(build_skill(name, description, body, triggers or []))
+    except SkillError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1)
+    console.print(f"[green]✓ Skill /{saved.name} creada[/green] en {saved.path}")
+    console.print(f"[dim]Edítala con: magnus skill edit {saved.name}[/dim]")
+
+
+@skill_app.command("edit")
+def skill_edit(name: str = typer.Argument(..., help="Nombre de la skill.")) -> None:
+    """Abre el SKILL.md en tu editor. Los cambios valen en el siguiente mensaje."""
+    import click
+
+    skill = _skill_registry().get(name)
+    if skill is None or skill.path is None:
+        console.print(f"[red]No existe la skill '{name}'.[/red]")
+        raise typer.Exit(code=1)
+    if skill.source == "builtin":
+        console.print("[yellow]Es una skill incluida: crea una tuya con el mismo nombre para "
+                      "cambiarla (magnus skill new).[/yellow]")
+        raise typer.Exit(code=1)
+    click.edit(filename=skill.path)
+    registry = _skill_registry()
+    if name in registry.errors:
+        console.print(f"[red]La skill quedó con errores: {registry.errors[name]}[/red]")
+
+
+@skill_app.command("test")
+def skill_test(message: str = typer.Argument(..., help="Mensaje de prueba.")) -> None:
+    """Qué skills se aplicarían a un mensaje, sin llamar al modelo."""
+    matched = _skill_registry().resolve(message)
+    if not matched:
+        console.print("[dim]Ninguna skill aplica a ese mensaje.[/dim]")
+        return
+    for s in matched:
+        console.print(f"[green]/{s.name}[/green] — {s.description}")
+
+
+rag_app = typer.Typer(help="Colecciones de tus documentos para responder con tus datos.")
+app.add_typer(rag_app, name="rag")
+mem_app = typer.Typer(help="Memoria: hechos cortos que Magnus recuerda de ti.")
+app.add_typer(mem_app, name="mem")
+
+
+def _rag_store():
+    # Import perezoso, como en las skills: solo estos comandos lo necesitan.
+    from core.rag import OllamaEmbedder, RagStore
+
+    settings = load_settings()
+    manager = RuntimeManager(ollama_url=settings.ollama_url)
+    return RagStore(
+        data_dir() / "magnus.db",
+        lambda model: OllamaEmbedder(settings.ollama_url, model, before=manager.ensure_loaded),
+    )
+
+
+def _fail(exc: Exception) -> typer.Exit:
+    console.print(f"[red]{exc}[/red]")
+    return typer.Exit(code=1)
+
+
+@rag_app.command("new")
+def rag_new(
+    name: str = typer.Argument(..., help="Nombre de la colección, p. ej. 'manuales'."),
+    embedding_model: str = typer.Option("nomic-embed-text", "--modelo",
+                                        help="Modelo de embeddings de Ollama."),
+    chunk_chars: int = typer.Option(1000, "--fragmento", help="Caracteres por fragmento."),
+    overlap_chars: int = typer.Option(150, "--solape", help="Caracteres de solapamiento."),
+) -> None:
+    """Crea una colección de documentos."""
+    from core.rag import RagError
+
+    try:
+        coll = _rag_store().create_collection(name, embedding_model, chunk_chars, overlap_chars)
+    except RagError as exc:
+        raise _fail(exc) from exc
+    console.print(f"[green]✓ Colección '{coll.name}' creada.[/green] "
+                  f"Añade documentos con: magnus rag add {coll.name} <carpeta>")
+
+
+@rag_app.command("list")
+def rag_list() -> None:
+    """Colecciones con cuántos documentos y fragmentos tienen."""
+    table = Table(title="Colecciones")
+    for col in ("Nombre", "Documentos", "Fragmentos", "Embeddings"):
+        table.add_column(col)
+    for c in _rag_store().list_collections():
+        table.add_row(c.name, str(c.documents), str(c.chunks), c.embedding_model)
+    console.print(table)
+
+
+@rag_app.command("add")
+def rag_add(
+    collection: str = typer.Argument(..., help="Colección."),
+    paths: list[str] = typer.Argument(..., help="Archivos o carpetas."),
+) -> None:
+    """Indexa archivos o carpetas (txt, md, código, html, csv, json; PDF con pypdf)."""
+    from pathlib import Path
+
+    from core.rag import RagError
+
+    store = _rag_store()
+    for path in paths:
+        console.print(f"Indexando {path}…")
+        try:
+            r = store.ingest_path(collection, Path(path))
+        except RagError as exc:
+            raise _fail(exc) from exc
+        console.print(f"[green]✓ {r['indexed']} nuevos[/green], {r['skipped']} ya estaban, "
+                      f"{r['chunks']} fragmentos")
+        for file, error in r["errors"].items():
+            console.print(f"[yellow]• {file}: {error}[/yellow]")
+
+
+@rag_app.command("search")
+def rag_search(
+    collection: str = typer.Argument(..., help="Colección."),
+    query: str = typer.Argument(..., help="Qué buscar."),
+    k: int = typer.Option(5, "-k", help="Resultados."),
+) -> None:
+    """Busca por significado en una colección, sin llamar al modelo de chat."""
+    from core.rag import RagError
+
+    try:
+        hits = _rag_store().search(collection, query, k)
+    except RagError as exc:
+        raise _fail(exc) from exc
+    for i, h in enumerate(hits, 1):
+        console.print(f"[bold]{i}. {h.title}[/bold] [dim]({h.score:.3f})[/dim]")
+        console.out(h.text[:300] + ("…" if len(h.text) > 300 else ""), highlight=False)
+        console.print()
+
+
+@rag_app.command("rm")
+def rag_rm(
+    collection: str = typer.Argument(..., help="Colección."),
+    yes: bool = typer.Option(False, "--si", help="No pedir confirmación."),
+) -> None:
+    """Borra una colección y sus fragmentos (tus archivos no se tocan)."""
+    from core.rag import RagError
+
+    if not yes and not typer.confirm(f"¿Borrar la colección '{collection}'?"):
+        raise typer.Exit()
+    try:
+        _rag_store().delete_collection(collection)
+    except RagError as exc:
+        raise _fail(exc) from exc
+    console.print(f"[green]✓ Colección '{collection}' borrada.[/green]")
+
+
+@mem_app.command("add")
+def mem_add(text: str = typer.Argument(..., help="Hecho a recordar.")) -> None:
+    """Guarda un hecho corto, p. ej. 'Trabajo con un Jetson Orin Nano'."""
+    from core.rag import RagError
+
+    try:
+        memory = _rag_store().add_memory(text)
+    except RagError as exc:
+        raise _fail(exc) from exc
+    console.print(f"[green]✓ Recordado (#{memory.id}).[/green]")
+
+
+@mem_app.command("list")
+def mem_list() -> None:
+    """Todo lo que Magnus recuerda."""
+    for m in _rag_store().list_memories():
+        console.print(f"[dim]#{m.id}[/dim] {m.text}")
+
+
+@mem_app.command("rm")
+def mem_rm(memory_id: int = typer.Argument(..., help="Número de la memoria.")) -> None:
+    """Olvida un hecho."""
+    if not _rag_store().delete_memory(memory_id):
+        console.print(f"[red]No existe la memoria #{memory_id}.[/red]")
+        raise typer.Exit(code=1)
+    console.print(f"[green]✓ Olvidado #{memory_id}.[/green]")
+
+
+@mem_app.command("search")
+def mem_search(query: str = typer.Argument(..., help="Qué buscar.")) -> None:
+    """Busca en la memoria por significado."""
+    from core.rag import RagError
+
+    try:
+        hits = _rag_store().search_memories(query, k=5)
+    except RagError as exc:
+        raise _fail(exc) from exc
+    for m in hits:
+        console.print(f"[dim]#{m.id} ({m.score:.3f})[/dim] {m.text}")
+
+
+agent_app = typer.Typer(help="Agentes: modelo + instrucciones + herramientas, definidos en YAML.")
+app.add_typer(agent_app, name="agent")
+
+
+def _agent_registry():
+    from core.agent import BUILTIN_AGENTS_DIR, AgentRegistry
+
+    return AgentRegistry(data_dir() / "agents", BUILTIN_AGENTS_DIR)
+
+
+@agent_app.command("list")
+def agent_list() -> None:
+    """Agentes disponibles: los incluidos con Magnus y los tuyos."""
+    registry = _agent_registry()
+    table = Table(title="Agentes")
+    for col in ("Nombre", "Origen", "Modelo", "Herramientas", "Descripción"):
+        table.add_column(col)
+    for a in registry.list():
+        table.add_row(a.name, "incluido" if a.source == "builtin" else "tuyo",
+                      a.model or "—", ", ".join(a.tools) or "—", a.description)
+    console.print(table)
+    for name, error in registry.errors.items():
+        console.print(f"[yellow]• {name}: {error}[/yellow]")
+    console.print(f"[dim]Tus agentes viven en {registry.user_dir}[/dim]")
+
+
+@agent_app.command("show")
+def agent_show(name: str = typer.Argument(..., help="Nombre del agente.")) -> None:
+    """Muestra la definición de un agente."""
+    from core.agent import render_agent
+
+    spec = _agent_registry().get(name)
+    if spec is None:
+        console.print(f"[red]No existe el agente '{name}'.[/red]")
+        raise typer.Exit(code=1)
+    console.print(f"[dim]{spec.path}[/dim]")
+    console.out(render_agent(spec), highlight=False)
+
+
+@agent_app.command("new")
+def agent_new(
+    name: str = typer.Argument(..., help="Nombre en minúsculas con guiones."),
+    description: str = typer.Option(..., "--descripcion", "-d", help="Para qué sirve."),
+    model: str = typer.Option(None, "--modelo", "-m", help="Modelo de Ollama por omisión."),
+    tools: list[str] = typer.Option(None, "--herramienta", "-t",
+                                    help="calcular, fecha_hora, buscar_documentos, recordar, "
+                                         "buscar_memoria (repetible)."),
+    collection: str = typer.Option(None, "--coleccion", "-c",
+                                   help="Colección para buscar_documentos."),
+) -> None:
+    """Crea un agente tuyo; edita después su YAML para afinar las instrucciones."""
+    from core.agent import AgentError, build_agent
+
+    data = {"name": name, "description": description, "model": model, "tools": tools or [],
+            "collection": collection,
+            "system": "Describe aquí cómo debe comportarse el agente y cuándo usar cada "
+                      "herramienta."}
+    try:
+        saved = _agent_registry().save(build_agent(data))
+    except AgentError as exc:
+        raise _fail(exc) from exc
+    console.print(f"[green]✓ Agente '{saved.name}' creado[/green] en {saved.path}")
+    console.print(f"[dim]Pruébalo con: magnus agent run {saved.name} \"tu pregunta\"[/dim]")
+
+
+@agent_app.command("run")
+def agent_run(
+    name: str = typer.Argument(..., help="Nombre del agente."),
+    message: str = typer.Argument(..., help="Qué le pides."),
+    model: str = typer.Option(None, "--modelo", "-m", help="Usar otro modelo."),
+) -> None:
+    """Ejecuta un agente mostrando cada herramienta que usa."""
+    from core.agent import AgentError, AgentRunner
+
+    spec = _agent_registry().get(name)
+    if spec is None:
+        console.print(f"[red]No existe el agente '{name}'.[/red]")
+        raise typer.Exit(code=1)
+    settings = load_settings()
+    manager = RuntimeManager(ollama_url=settings.ollama_url)
+    runner = AgentRunner(
+        store=Store(data_dir() / "magnus.db"), settings=settings, platform=detect_platform(),
+        client=OllamaChatClient(settings.ollama_url),
+        power_sampler=lambda: sample_system().power_w, ensure_loaded=manager.ensure_loaded,
+        skills=_skill_registry(), rag=_rag_store(),
+    )
+    try:
+        for event in runner.run(spec, message, model=model):
+            if event["type"] == "start":
+                for note in event["notes"]:
+                    console.print(f"[yellow]• {note}[/yellow]")
+            elif event["type"] == "tool_call":
+                console.print(f"[cyan]→ {event['name']}[/cyan] [dim]{event['arguments']}[/dim]")
+            elif event["type"] == "tool_result":
+                console.print(f"[dim]  {event['result'][:200]}[/dim]")
+            elif event["type"] == "answer":
+                console.print()
+                console.out(event["content"], highlight=False)
+            elif event["type"] == "done":
+                m = event["metrics"]
+                console.print(f"[dim]{m['steps']} pasos · {m['stop_reason']}[/dim]")
+                _print_metrics(m)
+    except AgentError as exc:
+        raise _fail(exc) from exc
+
+
 @app.command()
 def chat(
     model: str = typer.Argument(..., help="Modelo de Ollama, p. ej. 'qwen2.5:1.5b'."),
     system_prompt: str = typer.Option(None, "--system", "-s", help="Instrucción de sistema."),
     conversation: str = typer.Option(None, "--conversacion", help="Continuar una conversación."),
+    collection: str = typer.Option(None, "--coleccion", "-c",
+                                   help="Responder con los documentos de esta colección."),
+    use_memory: bool = typer.Option(None, "--memoria/--sin-memoria",
+                                    help="Usar la memoria (por omisión: según el equipo)."),
 ) -> None:
     """Chatea con un modelo local. Cada respuesta cierra con el medidor de coste."""
     settings = load_settings()
@@ -97,6 +451,8 @@ def chat(
         power_sampler=lambda: sample_system().power_w,
         # Recarga con guarda de memoria si Ollama expulsó el modelo.
         ensure_loaded=RuntimeManager(ollama_url=settings.ollama_url).ensure_loaded,
+        skills=_skill_registry(),
+        rag=_rag_store(),
     )
     console.print(f"[green]Magnus[/green] · {model} · escribe /salir para terminar\n")
     conv_id = conversation
@@ -112,7 +468,12 @@ def chat(
                 continue
             try:
                 for event in service.stream(model=model, message=text,
-                                            conversation_id=conv_id, system=system_prompt):
+                                            conversation_id=conv_id, system=system_prompt,
+                                            collection=collection, use_memory=use_memory):
+                    if event["type"] == "start" and (event["skills"] or event["sources"]):
+                        used = [f"/{s}" for s in event["skills"]]
+                        used += [f"[{s['n']}] {s['title']}" for s in event["sources"]]
+                        console.print(f"[dim]usando: {', '.join(used)}[/dim]")
                     if event["type"] == "token":
                         console.out(event["content"], end="", highlight=False)
                     elif event["type"] == "done":

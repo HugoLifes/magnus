@@ -1,15 +1,18 @@
-"""Chat con streaming de tokens y medición de cada turno.
+"""Chat con streaming de tokens, skills, documentos del usuario y medición de cada turno.
 
 `ChatService.stream()` es un generador de eventos que la CLI imprime y el
 daemon reenvía por WebSocket:
 
-    {"type": "start", "conversation_id", "model"}
+    {"type": "start", "conversation_id", "model", "skills", "sources"}
+    {"type": "thinking", "content"}                    (modelos que razonan)
     {"type": "token", "content"}                       (muchos)
     {"type": "done",  "conversation_id", "message_id", "content", "metrics"}
 
-Mientras el modelo genera, un `PowerMeter` muestrea la potencia del equipo;
-al cerrar, el turno se mide con los tokens que reporta el runtime y se guarda
-junto a la respuesta.
+Antes de generar se resuelven las skills del mensaje (`/nombre` o disparadores)
+y, si se pidió, se buscan fragmentos de una colección y hechos de la memoria;
+todo eso se suma al system prompt. Mientras el modelo genera, un `PowerMeter`
+muestrea la potencia del equipo; al cerrar, el turno se mide con los tokens que
+reporta el runtime y se guarda junto a la respuesta.
 """
 
 from __future__ import annotations
@@ -31,8 +34,14 @@ from core.metering import (
     pick_reference,
 )
 from core.platform import PlatformProfile
+from core.rag import RagError, RagStore, format_context
 from core.runtime_manager import RuntimeManagerError
+from core.skills import SkillRegistry, compose_system_prompt
 from core.store import Store, title_from
+
+# Similitud mínima para traer un hecho de la memoria: por debajo, lo que se
+# inyecta es ruido que el modelo pequeño tiende a mencionar sin venir al caso.
+_MEMORY_MIN_SCORE = 0.35
 
 
 @dataclass
@@ -43,17 +52,29 @@ class ChatError(Exception):
         return self.message
 
 
+def _request_body(model: str, messages: list[dict], stream: bool, options: dict | None,
+                  think: bool | None, tools: list[dict] | None = None) -> dict:
+    body: dict = {"model": model, "messages": messages, "stream": stream}
+    if tools:
+        body["tools"] = tools
+    if options:
+        body["options"] = options
+    if think is not None:
+        # Poner "/no_think" en el mensaje no basta: medido en el Jetson,
+        # qwen3:0.6b razonó 1344 tokens igual. El parámetro de la API sí manda.
+        body["think"] = think
+    return body
+
+
 class OllamaChatClient:
-    """Streaming de /api/chat de Ollama (una línea JSON por fragmento)."""
+    """Cliente de /api/chat de Ollama: streaming para el chat, un paso para agentes."""
 
     def __init__(self, base_url: str = "http://127.0.0.1:11434") -> None:
         self.base_url = base_url.rstrip("/")
 
-    def stream_chat(self, model: str, messages: list[dict],
-                    options: dict | None = None) -> Iterator[dict]:
-        body: dict = {"model": model, "messages": messages, "stream": True}
-        if options:
-            body["options"] = options
+    def stream_chat(self, model: str, messages: list[dict], options: dict | None = None,
+                    think: bool | None = None) -> Iterator[dict]:
+        body = _request_body(model, messages, True, options, think)
         # Sin límite de lectura corto: en un Jetson la primera carga del modelo
         # tarda decenas de segundos antes del primer token.
         timeout = httpx.Timeout(10.0, read=600.0)
@@ -77,6 +98,28 @@ class OllamaChatClient:
         except httpx.ReadTimeout as exc:
             raise ChatError("Ollama dejó de responder a mitad de la respuesta.") from exc
 
+    def chat_once(self, model: str, messages: list[dict], tools: list[dict] | None = None,
+                  options: dict | None = None, think: bool | None = None) -> dict:
+        """Un paso sin streaming, con herramientas: lo usa el runtime de agentes."""
+        body = _request_body(model, messages, False, options, think, tools)
+        try:
+            r = httpx.post(f"{self.base_url}/api/chat", json=body,
+                           timeout=httpx.Timeout(10.0, read=600.0))
+        except httpx.ConnectError as exc:
+            raise ChatError(
+                f"No se puede conectar con Ollama en {self.base_url}. ¿Está arrancado?"
+            ) from exc
+        except httpx.ReadTimeout as exc:
+            raise ChatError("Ollama tardó demasiado en responder.") from exc
+        if r.status_code >= 400:
+            if "does not support tools" in r.text:
+                raise ChatError(f"El modelo {model} no soporta herramientas. Elige uno con "
+                                "'tools' en el catálogo (magnus catalog --capacidad tools).")
+            if "does not support thinking" in r.text:
+                raise ChatError(f"El modelo {model} no razona: quita la opción 'think'.")
+            raise ChatError(_ollama_error(r))
+        return r.json()
+
     def parameter_size_b(self, model: str) -> float | None:
         """Parámetros del modelo (B) según Ollama, para elegir la referencia de nube."""
         try:
@@ -94,6 +137,8 @@ def _ollama_error(response: httpx.Response) -> str:
         detail = response.text
     if response.status_code == 404:
         return f"El modelo no está descargado en Ollama: {detail}"
+    if "does not support thinking" in str(detail):
+        return "Este modelo no razona: quita la opción 'think'."
     return f"Ollama respondió {response.status_code}: {detail}"
 
 
@@ -107,13 +152,21 @@ class ChatService:
         power_sampler: Callable[[], float | None],
         power_interval_s: float = 0.5,
         ensure_loaded: Callable[[str], object] | None = None,
+        skills: SkillRegistry | None = None,
+        rag: RagStore | None = None,
     ) -> None:
-        self._ensure_loaded = ensure_loaded
         self._store = store
         self._settings = settings
         self._client = client
         self._power_sampler = power_sampler
         self._power_interval = power_interval_s
+        self._ensure_loaded = ensure_loaded
+        self._skills = skills
+        self._rag = rag
+        # Buscar en la memoria calcula un embedding con otro modelo. Donde solo
+        # cabe un modelo a la vez (Jetson, laptops de 4–8 GB) eso expulsaría al
+        # de chat en cada turno; ahí la memoria se usa solo si se pide.
+        self._memory_by_default = platform.max_loaded_models > 1
         self._params_cache: dict[str, float | None] = {}
         hardware_cost = settings.hardware_cost_usd
         if hardware_cost is None:
@@ -128,6 +181,24 @@ class ChatService:
             self._params_cache[model] = self._client.parameter_size_b(model)
         return self._params_cache[model]
 
+    def _retrieve(self, prompt: str, collection: str | None,
+                  use_memory: bool | None, k: int) -> tuple[str | None, list[dict]]:
+        """Contexto de documentos y memoria para el system prompt, y sus fuentes."""
+        if self._rag is None:
+            if collection:
+                raise ChatError("El RAG no está disponible en este servicio.")
+            return None, []
+        memory = self._memory_by_default if use_memory is None else use_memory
+        try:
+            hits = self._rag.search(collection, prompt, k=k) if collection else []
+            memories = (self._rag.search_memories(prompt, k=3, min_score=_MEMORY_MIN_SCORE)
+                        if memory else [])
+        except RagError as exc:
+            raise ChatError(str(exc)) from exc
+        sources = [{"n": i, "title": h.title, "source": h.source, "score": round(h.score, 4)}
+                   for i, h in enumerate(hits, 1)]
+        return format_context(hits, memories), sources
+
     def stream(
         self,
         *,
@@ -136,38 +207,62 @@ class ChatService:
         conversation_id: str | None = None,
         system: str | None = None,
         options: dict | None = None,
+        collection: str | None = None,
+        use_memory: bool | None = None,
+        rag_k: int = 4,
+        think: bool | None = None,
     ) -> Iterator[dict]:
+        # Todo lo que puede fallar va antes de escribir en la base: un turno que
+        # no llega al modelo no deja conversaciones vacías ni mensajes huérfanos.
         if not message.strip():
             raise ChatError("El mensaje está vacío.")
-        if self._ensure_loaded:
-            # Antes de guardar nada: si el modelo no puede cargarse, el turno
-            # no deja un mensaje del usuario huérfano en la conversación.
-            try:
-                self._ensure_loaded(model)
-            except RuntimeManagerError as exc:
-                raise ChatError(str(exc)) from exc
+        conv = None
         if conversation_id:
             conv = self._store.get_conversation(conversation_id)
             if conv is None:
                 raise ChatError(f"Conversación no encontrada: {conversation_id}")
-        else:
+
+        active = self._skills.resolve(message) if self._skills else []
+        # Al modelo le llega el mensaje sin el "/nombre"; en la conversación se
+        # guarda tal como lo escribió el usuario.
+        prompt = self._skills.strip_invocation(message) if self._skills else message
+        # Los embeddings van antes de cargar el modelo de chat: si solo cabe un
+        # modelo, calcularlos lo expulsa y así se recarga con la guarda.
+        context, sources = self._retrieve(prompt, collection, use_memory, rag_k)
+        if self._ensure_loaded:
+            try:
+                self._ensure_loaded(model)
+            except RuntimeManagerError as exc:
+                raise ChatError(str(exc)) from exc
+
+        if conv is None:
             conv = self._store.create_conversation(model=model, title=title_from(message))
+        effective_system = compose_system_prompt(system, active)
+        if context:
+            effective_system = f"{effective_system}\n\n{context}" if effective_system else context
 
         history = [{"role": m.role, "content": m.content}
                    for m in self._store.messages(conv.id)]
-        if system:
-            history.insert(0, {"role": "system", "content": system})
-        history.append({"role": "user", "content": message})
+        if effective_system:
+            history.insert(0, {"role": "system", "content": effective_system})
+        history.append({"role": "user", "content": prompt})
         self._store.add_message(conv.id, "user", message)
 
-        yield {"type": "start", "conversation_id": conv.id, "model": model}
+        yield {"type": "start", "conversation_id": conv.id, "model": model,
+               "skills": [s.name for s in active], "sources": sources}
 
         parts: list[str] = []
         final: dict = {}
         ttft: float | None = None
         start = time.monotonic()
         with PowerMeter(self._power_sampler, self._power_interval) as meter:
-            for chunk in self._client.stream_chat(model, history, options):
+            for chunk in self._client.stream_chat(model, history, options, think=think):
+                # Modelos que razonan (qwen3, deepseek-r1, gpt-oss): Ollama manda el
+                # razonamiento aparte. No es respuesta ni cuenta para el primer
+                # token, pero el cliente puede mostrarlo mientras espera.
+                thinking = chunk.get("message", {}).get("thinking", "")
+                if thinking:
+                    yield {"type": "thinking", "content": thinking}
                 piece = chunk.get("message", {}).get("content", "")
                 if piece:
                     if ttft is None:

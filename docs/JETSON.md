@@ -71,12 +71,24 @@ En un Orin Nano de 8 GB eso decide entre un modelo de 1.5 B y uno de 0.5 B. Para
 servir modelos conviene arrancar sin escritorio (`sudo systemctl set-default
 multi-user.target`, reversible con `graphical.target`) o al menos cerrar el navegador.
 
-### 5. La versión de Ollama importa
+### 5. La versión de Ollama importa: usar la imagen oficial
 
 `dustynv/ollama:r36.4.0` trae **Ollama 0.6.5** y el tag más reciente de esa imagen es
 0.6.8 (mayo 2025). Con 0.6.5 el registro rechaza `qwen3` con un 412 "requires a newer
 version of Ollama". Magnus lo traduce a un mensaje accionable y expone la versión en
 `/health`.
+
+La imagen **oficial** `ollama/ollama` sí sirve en Jetson: su build arm64 incluye
+`cuda_jetpack5` y `cuda_jetpack6`. Comprobado con 0.34.0 en JetPack 6.2:
+
+```
+inference compute ... library=CUDA compute=8.7 description=Orin
+libdirs=ollama,cuda_jetpack6 driver=12.6 type=iGPU total="7.4 GiB"
+```
+
+El compose usa la oficial con la versión fijada. Ojo si se reemplaza la de dustynv:
+la oficial ya tiene `ollama` como ENTRYPOINT, así que `command: ["ollama", "serve"]`
+la rompería (quedaría `ollama ollama serve`).
 
 ## Modelos que caben (Orin Nano 8 GB)
 
