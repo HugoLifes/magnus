@@ -17,6 +17,9 @@ class Runtime(str, Enum):
     OLLAMA = "ollama"
     VLLM = "vllm"
     TRTLLM = "trtllm"
+    # llama.cpp directo: lo que usa Ollama por dentro; útil en Jetson y laptops
+    # donde se quiere exprimir la memoria sin la capa de Ollama.
+    LLAMACPP = "llamacpp"
 
 
 # Qué cuantizaciones expone de forma práctica cada runtime.
@@ -24,6 +27,7 @@ _RUNTIME_QUANTS: dict[Runtime, set[str]] = {
     Runtime.OLLAMA: {"q8", "q6", "q5", "q4"},          # GGUF
     Runtime.VLLM: {"fp16", "fp8", "q8", "q4"},          # awq/gptq/fp8
     Runtime.TRTLLM: {"fp16", "fp8", "q4"},
+    Runtime.LLAMACPP: {"fp16", "q8", "q6", "q5", "q4"},  # GGUF
 }
 
 # Recomendación por perfil de uso.

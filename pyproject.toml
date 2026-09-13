@@ -35,3 +35,8 @@ addopts = "-v"
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.ruff.lint.flake8-bugbear]
+# Typer y FastAPI declaran parámetros con llamadas en los valores por defecto:
+# es su API, no un default mutable compartido.
+extend-immutable-calls = ["typer.Option", "typer.Argument", "fastapi.Depends"]

@@ -10,7 +10,8 @@
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
 
 ENV PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    MAGNUS_HOME=/app/data
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 python3-pip python3-venv \

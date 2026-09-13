@@ -19,6 +19,8 @@ que el daemon y, después, los clientes Flutter reutilicen exactamente lo mismo.
 
 from __future__ import annotations
 
+import sys
+
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -36,11 +38,149 @@ from core import (
     quant_matrix,
     recommend_quant,
     resolve_target_vram_gb,
+    unified_memory_note,
 )
+from core.chat import ChatError, ChatService, OllamaChatClient
+from core.config import data_dir, load_settings
 from core.model_registry import MODEL_REGISTRY
+from core.platform import detect_platform
+from core.store import Store
+from core.telemetry import sample_system
 
 app = typer.Typer(add_completion=False, help="Magnus — SO de agentes local-first sobre NVIDIA.")
+
+# La consola de Windows arranca en cp1252: sin esto los acentos y los símbolos
+# (°C, ·, ✓) salen como "�" en las laptops, que son el público principal.
+if sys.platform == "win32":
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
 console = Console()
+
+
+def _fmt(value: float | None, unit: str = "") -> str:
+    return "—" if value is None else f"{value}{unit}"
+
+
+def _usd(value: float) -> str:
+    return f"${value:.6f}"
+
+
+def _print_metrics(m: dict) -> None:
+    saving = m["savings_usd"]
+    verdict = (f"[green]ahorro {_usd(saving)}[/green]" if saving >= 0
+               else f"[yellow]sobrecoste {_usd(-saving)}[/yellow]")
+    parts = [
+        f"{m['tokens_in']}→{m['tokens_out']} tok",
+        f"{_fmt(m['tokens_per_s'])} tok/s",
+        f"1er token {_fmt(m['ttft_s'], ' s')}",
+        f"{_fmt(m['energy_wh'], ' Wh')}",
+        f"local {_usd(m['local_cost_usd'])}",
+        f"nube ({m['cloud_reference']}) {_usd(m['cloud_cost_usd'])}",
+    ]
+    console.print(f"[dim]{' · '.join(parts)} ·[/dim] {verdict}")
+
+
+@app.command()
+def chat(
+    model: str = typer.Argument(..., help="Modelo de Ollama, p. ej. 'qwen2.5:1.5b'."),
+    system_prompt: str = typer.Option(None, "--system", "-s", help="Instrucción de sistema."),
+    conversation: str = typer.Option(None, "--conversacion", help="Continuar una conversación."),
+) -> None:
+    """Chatea con un modelo local. Cada respuesta cierra con el medidor de coste."""
+    settings = load_settings()
+    store = Store(data_dir() / "magnus.db")
+    service = ChatService(
+        store=store, settings=settings, platform=detect_platform(),
+        client=OllamaChatClient(settings.ollama_url),
+        power_sampler=lambda: sample_system().power_w,
+        # Recarga con guarda de memoria si Ollama expulsó el modelo.
+        ensure_loaded=RuntimeManager(ollama_url=settings.ollama_url).ensure_loaded,
+    )
+    console.print(f"[green]Magnus[/green] · {model} · escribe /salir para terminar\n")
+    conv_id = conversation
+    try:
+        while True:
+            try:
+                text = console.input("[bold cyan]tú ›[/bold cyan] ")
+            except (EOFError, KeyboardInterrupt):
+                break
+            if text.strip() in ("/salir", "/exit", "/quit"):
+                break
+            if not text.strip():
+                continue
+            try:
+                for event in service.stream(model=model, message=text,
+                                            conversation_id=conv_id, system=system_prompt):
+                    if event["type"] == "token":
+                        console.out(event["content"], end="", highlight=False)
+                    elif event["type"] == "done":
+                        conv_id = event["conversation_id"]
+                        console.out("")
+                        _print_metrics(event["metrics"])
+            except ChatError as exc:
+                console.print(f"\n[red]{exc}[/red]")
+            console.print()
+    finally:
+        store.close()
+
+
+@app.command()
+def usage() -> None:
+    """Totales del medidor: cuánto has generado en local y cuánto te has ahorrado."""
+    store = Store(data_dir() / "magnus.db")
+    try:
+        s = store.usage_summary()
+    finally:
+        store.close()
+    table = Table(title="Uso acumulado")
+    for col in ("Modelo", "Turnos", "Tokens in", "Tokens out", "Wh", "Local", "Nube", "Ahorro"):
+        table.add_column(col, justify="left" if col == "Modelo" else "right")
+    for row in [*s["by_model"], {"model": "TOTAL", **s}]:
+        table.add_row(row["model"], str(row["turns"]), str(row["tokens_in"]),
+                      str(row["tokens_out"]), f"{row['energy_wh']:.3f}",
+                      _usd(row["local_cost_usd"]), _usd(row["cloud_cost_usd"]),
+                      _usd(row["savings_usd"]))
+    console.print(table)
+
+
+@app.command("platform")
+def platform_cmd() -> None:
+    """Familia NVIDIA de esta máquina y cómo conviene servir modelos en ella."""
+    p = detect_platform()
+    table = Table(title=f"Plataforma: {p.display_name}", show_header=False)
+    table.add_row("Familia", p.family.value)
+    table.add_row("GPUs", str(p.gpu_count))
+    table.add_row("Memoria", f"{p.total_memory_gib} GiB"
+                  + (" (unificada con el sistema)" if p.unified_memory else ""))
+    table.add_row("Runtimes, por preferencia", ", ".join(rt.value for rt in p.runtimes))
+    table.add_row("Modelos cargados a la vez", str(p.max_loaded_models))
+    table.add_row("Peticiones en paralelo", str(p.parallel_requests))
+    table.add_row("Tamaño sugerido (q4)", f"hasta ~{p.suggested_max_params_b} B")
+    console.print(table)
+    for note in p.notes:
+        console.print(f"[yellow]• {note}[/yellow]")
+
+
+@app.command()
+def system() -> None:
+    """Uso de GPU, potencia, temperatura y memoria, ahora mismo."""
+    s = sample_system()
+    table = Table(title="Sistema")
+    table.add_column("#")
+    table.add_column("GPU")
+    table.add_column("Uso", justify="right")
+    table.add_column("W", justify="right")
+    table.add_column("°C", justify="right")
+    table.add_column("Memoria (GiB)", justify="right")
+    for g in s.gpus:
+        mem = f"{_fmt(g.memory_used_gib)} / {_fmt(g.memory_total_gib)}"
+        table.add_row(str(g.index), g.name, _fmt(g.utilization_pct, " %"),
+                      _fmt(g.power_w), _fmt(g.temperature_c), mem)
+    console.print(table)
+    console.print(f"RAM disponible: {_fmt(s.ram_available_gib)} / {_fmt(s.ram_total_gib)} GiB"
+                  f"   ·   Consumo: {_fmt(s.power_w, ' W')}")
 
 
 @app.command()
@@ -89,6 +229,12 @@ def check(
     spec = get_model(model)
     vram = resolve_target_vram_gb(target)
     res = check_fit(spec, vram, quant=quant, context=context, batch=batch)
+    if target == "auto":
+        gpus = detect_gpus()
+        if gpus and gpus[0].unified_memory:
+            note = unified_memory_note(res, gpus[0].free_gib)
+            if note:
+                res.notes.append(note)
 
     verdict = "[green]✓ ENTRA[/green]" if res.fits else "[red]✗ NO ENTRA[/red]"
     console.print(f"\n{verdict}  {res.model_id} @ {res.quant} | destino {target} ({res.available_gib} GiB)")
@@ -174,6 +320,8 @@ def load(
     model: str = typer.Argument(..., help="Nombre del modelo en Ollama, p. ej. 'llama3.1:8b'."),
     backend: str = typer.Option("ollama", "--backend", "-b", help="Runtime: ollama (hoy)."),
     no_pull: bool = typer.Option(False, "--no-pull", help="No descargar si no está localmente."),
+    force: bool = typer.Option(False, "--force",
+                               help="Cargar aunque no quepa en la memoria libre (riesgoso)."),
     ollama_url: str = typer.Option("http://127.0.0.1:11434", "--ollama-url", hidden=True),
 ) -> None:
     """Carga un modelo en VRAM. Si no está en Ollama local, lo descarga primero."""
@@ -186,13 +334,86 @@ def load(
 
     console.print(f"Cargando [bold]{model}[/bold] en {rt.value}…")
     try:
-        loaded = mgr.serve(model, backend=rt, pull_if_missing=not no_pull)
+        loaded = mgr.serve(model, backend=rt, pull_if_missing=not no_pull, force=force)
     except RuntimeManagerError as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(code=1)
 
     vram_str = f"{loaded.size_vram_gib} GiB" if loaded.size_vram_gib else "—"
     console.print(f"[green]✓ {loaded.model_id}[/green] cargado en VRAM ({vram_str})")
+    for note in loaded.notes:
+        console.print(f"[yellow]• {note}[/yellow]")
+
+
+@app.command()
+def fetch(
+    model: str = typer.Argument(..., help="Modelo de Ollama, p. ej. 'qwen3:4b'."),
+) -> None:
+    """Descarga un modelo de Ollama con barra de progreso."""
+    # Import perezoso: la barra solo hace falta aquí y la CLI arranca antes.
+    from rich.progress import BarColumn, DownloadColumn, Progress, TextColumn, TransferSpeedColumn
+
+    mgr = RuntimeManager(ollama_url=load_settings().ollama_url)
+    columns = (TextColumn("{task.description}"), BarColumn(), DownloadColumn(),
+               TransferSpeedColumn())
+    try:
+        with Progress(*columns, console=console) as progress:
+            tasks: dict[str, int] = {}
+            for event in mgr.pull(model):
+                digest, total = event["digest"], event["total"]
+                if digest and total:
+                    if digest not in tasks:
+                        tasks[digest] = progress.add_task(digest.removeprefix("sha256:")[:12],
+                                                          total=total)
+                    progress.update(tasks[digest], completed=event["completed"] or 0)
+                elif event["status"]:
+                    progress.console.print(f"[dim]{event['status']}[/dim]")
+    except RuntimeManagerError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1)
+    console.print(f"[green]✓ {model}[/green] descargado. Pruébalo con: magnus chat {model}")
+
+
+@app.command()
+def catalog(
+    capability: str = typer.Option(None, "--capacidad",
+                                   help="chat, code, reasoning, vision, tools o embedding."),
+) -> None:
+    """Modelos recomendados para ESTA máquina: qué cabe y qué no."""
+    from core.catalog import recommend, usable_gib
+
+    gpus = detect_gpus()
+    profile = detect_platform(gpus)
+    gpu = gpus[0] if gpus else None
+    table = Table(title=f"Catálogo para {profile.display_name} "
+                        f"({usable_gib(profile, gpu)} GiB utilizables)")
+    for col in ("Modelo", "Params (B)", "Descarga", "Necesita", "Capacidades", "¿Cabe?"):
+        table.add_column(col, justify="right" if col in ("Params (B)", "Descarga", "Necesita")
+                         else "left")
+    for rec in recommend(profile, gpu, capability):
+        m = rec.model
+        verdict = "[green]✓[/green]" if rec.fits else ("[yellow]lento[/yellow]" if rec.note
+                                                        else "[red]✗[/red]")
+        table.add_row(m.id, f"{m.params_b}", f"{m.size_gib} GiB", f"{rec.required_gib} GiB",
+                      ", ".join(m.capabilities), verdict)
+    console.print(table)
+    console.print("[dim]Descarga uno con: magnus fetch <modelo>[/dim]")
+
+
+@app.command()
+def local() -> None:
+    """Modelos descargados en Ollama."""
+    mgr = RuntimeManager(ollama_url=load_settings().ollama_url)
+    if not mgr.ollama_available():
+        console.print("[yellow]Ollama no está disponible. ¿Está arrancado?[/yellow]")
+        raise typer.Exit(code=1)
+    table = Table(title="Modelos descargados")
+    for col in ("Modelo", "Tamaño (GiB)", "Parámetros", "Cuantización"):
+        table.add_column(col)
+    for m in mgr.list_local_models():
+        table.add_row(m.model_id, _fmt(m.size_gib), m.parameter_size or "—",
+                      m.quantization or "—")
+    console.print(table)
 
 
 @app.command()

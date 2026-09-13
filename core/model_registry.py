@@ -32,6 +32,24 @@ class ModelSpec:
 # Subconjunto representativo. El campo clave para Magnus es que cada entrada
 # permita el cálculo de VRAM; ampliar es copiar valores de config.json.
 MODEL_REGISTRY: dict[str, ModelSpec] = {
+    # Pequeños: los únicos que caben con holgura en un Jetson Orin Nano (8 GB
+    # compartidos con el SO).
+    "llama-3.2-1b": ModelSpec(
+        id="llama-3.2-1b", params_b=1.24, n_layers=16, hidden=2048,
+        n_heads=32, n_kv_heads=8, context_max=131072, architecture="llama",
+    ),
+    "llama-3.2-3b": ModelSpec(
+        id="llama-3.2-3b", params_b=3.21, n_layers=28, hidden=3072,
+        n_heads=24, n_kv_heads=8, context_max=131072, architecture="llama",
+    ),
+    "qwen2.5-1.5b": ModelSpec(
+        id="qwen2.5-1.5b", params_b=1.54, n_layers=28, hidden=1536,
+        n_heads=12, n_kv_heads=2, context_max=32768, architecture="qwen2",
+    ),
+    "qwen2.5-3b": ModelSpec(
+        id="qwen2.5-3b", params_b=3.09, n_layers=36, hidden=2048,
+        n_heads=16, n_kv_heads=2, context_max=32768, architecture="qwen2",
+    ),
     "llama-3.1-8b": ModelSpec(
         id="llama-3.1-8b", params_b=8.03, n_layers=32, hidden=4096,
         n_heads=32, n_kv_heads=8, context_max=131072, architecture="llama",

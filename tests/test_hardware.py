@@ -36,12 +36,12 @@ def test_resolve_destino_desconocido_lanza_error():
 
 
 def test_resolve_auto_sin_gpu_lanza_error(monkeypatch):
-    monkeypatch.setattr("core.hardware.detect_gpus", lambda: [])
+    monkeypatch.setattr("core.hardware.detect_gpus", list)
     with pytest.raises(ValueError, match="No se detectó GPU"):
         resolve_target_vram_gb("auto")
 
 
 def test_resolve_none_sin_gpu_lanza_error(monkeypatch):
-    monkeypatch.setattr("core.hardware.detect_gpus", lambda: [])
+    monkeypatch.setattr("core.hardware.detect_gpus", list)
     with pytest.raises(ValueError, match="No se detectó GPU"):
         resolve_target_vram_gb(None)
