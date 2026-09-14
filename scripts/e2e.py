@@ -283,7 +283,12 @@ class E2E:
                 "message": "¿Cuánto es 1250 multiplicado por 1.16, más 80?",
                 "model": self.agent_model,
             })
-            expect(events[-1]["type"] == "done", f"agente: {events[-1]}")
+            last = events[-1]
+            if last["type"] == "error" and "memoria libre suficiente" in last.get("detail", ""):
+                # La guarda protegiendo el equipo: es un límite del hardware en ese
+                # momento, no un fallo de Magnus.
+                raise Warn(f"{self.agent_model} no cabe ahora mismo: {last['detail'][:120]}")
+            expect(last["type"] == "done", f"agente: {last}")
             calls = [e for e in events if e["type"] == "tool_call"]
             results = [e["result"] for e in events if e["type"] == "tool_result"]
             done = events[-1]
