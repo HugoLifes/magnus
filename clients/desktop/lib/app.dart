@@ -9,6 +9,8 @@ import 'features/agents/presentation/cubit/agents_cubit.dart';
 import 'features/agents/presentation/pages/agents_page.dart';
 import 'features/chat/presentation/cubit/chat_cubit.dart';
 import 'features/chat/presentation/pages/chat_page.dart';
+import 'features/cloud/presentation/cubit/cloud_cubit.dart';
+import 'features/cloud/presentation/pages/cloud_page.dart';
 import 'features/models/presentation/bloc/models_bloc.dart';
 import 'features/models/presentation/cubit/catalog_cubit.dart';
 import 'features/models/presentation/cubit/overview_cubit.dart';
@@ -38,6 +40,7 @@ Widget magnusPage(int index) => switch (index) {
       3 => const AgentsPage(),
       4 => const RagPage(),
       5 => const ResourcesPage(),
+      6 => const CloudPage(),
       _ => const SettingsPage(),
     };
 
@@ -48,6 +51,7 @@ const magnusDestinations = <NavDest>[
   NavDest('Agentes', LucideIcons.bot),
   NavDest('Documentos', LucideIcons.brain),
   NavDest('Recursos', LucideIcons.heartPulse),
+  NavDest('Nube', LucideIcons.cloud),
   NavDest('Ajustes', LucideIcons.settings),
 ];
 
@@ -72,6 +76,7 @@ class MagnusApp extends StatelessWidget {
         BlocProvider<CatalogCubit>.value(value: sl<CatalogCubit>()),
         BlocProvider<RagCubit>.value(value: sl<RagCubit>()),
         BlocProvider<AgentsCubit>.value(value: sl<AgentsCubit>()),
+        BlocProvider<CloudCubit>.value(value: sl<CloudCubit>()),
       ],
       child: BlocBuilder<SettingsCubit, SettingsState>(
         buildWhen: (a, b) =>

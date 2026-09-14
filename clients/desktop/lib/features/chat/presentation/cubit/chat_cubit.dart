@@ -63,6 +63,9 @@ class ChatState extends Equatable {
     this.collections = const [],
     this.collection,
     this.think,
+    this.providers = const [],
+    this.provider,
+    this.remoteModels = const [],
     this.sending = false,
     this.loading = false,
     this.error,
@@ -78,9 +81,28 @@ class ChatState extends Equatable {
 
   /// Razonamiento: null = el del modelo, false = apagado (más rápido).
   final bool? think;
+
+  /// Proveedores externos configurados (vLLM en la red, NVIDIA API, Magnus Cloud).
+  final List<ProviderInfo> providers;
+
+  /// null = este equipo. Si no, el id del proveedor. Nunca se elige solo.
+  final String? provider;
+  final List<String> remoteModels;
   final bool sending;
   final bool loading;
   final String? error;
+
+  /// Modelos elegibles según dónde corre el turno.
+  List<String> get modelIds =>
+      provider == null ? [for (final m in models) m.modelId] : remoteModels;
+
+  String get providerLocation {
+    if (provider == null) return 'local';
+    for (final p in providers) {
+      if (p.id == provider) return p.location;
+    }
+    return 'cloud';
+  }
 
   /// Coste y ahorro acumulados de la conversación abierta.
   double get savings => messages.fold(0, (s, m) => s + (m.metrics?.savingsUsd ?? 0));
@@ -94,11 +116,16 @@ class ChatState extends Equatable {
     List<ChatBubble>? messages,
     List<LocalModel>? models,
     String? model,
+    bool clearModel = false,
     List<CollectionInfo>? collections,
     String? collection,
     bool clearCollection = false,
     bool? think,
     bool clearThink = false,
+    List<ProviderInfo>? providers,
+    String? provider,
+    bool clearProvider = false,
+    List<String>? remoteModels,
     bool? sending,
     bool? loading,
     String? error,
@@ -108,10 +135,13 @@ class ChatState extends Equatable {
         activeId: clearActive ? null : (activeId ?? this.activeId),
         messages: messages ?? this.messages,
         models: models ?? this.models,
-        model: model ?? this.model,
+        model: clearModel ? null : (model ?? this.model),
         collections: collections ?? this.collections,
         collection: clearCollection ? null : (collection ?? this.collection),
         think: clearThink ? null : (think ?? this.think),
+        providers: providers ?? this.providers,
+        provider: clearProvider ? null : (provider ?? this.provider),
+        remoteModels: remoteModels ?? this.remoteModels,
         sending: sending ?? this.sending,
         loading: loading ?? this.loading,
         error: error,
@@ -120,7 +150,7 @@ class ChatState extends Equatable {
   @override
   List<Object?> get props => [
         conversations, activeId, messages, models, model, collections, collection,
-        think, sending, loading, error,
+        think, providers, provider, remoteModels, sending, loading, error,
       ];
 }
 
@@ -142,7 +172,7 @@ class ChatCubit extends Cubit<ChatState> {
       final models = results[1] as List<LocalModel>;
       final chatModels =
           models.where((m) => !m.modelId.contains('embed') && !m.modelId.startsWith('bge')).toList();
-      final keep = chatModels.any((m) => m.modelId == state.model);
+      final keep = state.provider != null || chatModels.any((m) => m.modelId == state.model);
       emit(state.copyWith(
         loading: false,
         conversations: results[0] as List<ConversationInfo>,
@@ -152,6 +182,13 @@ class ChatCubit extends Cubit<ChatState> {
       ));
     } on Failure catch (f) {
       emit(state.copyWith(loading: false, error: f.message));
+    }
+    // Un daemon antiguo sin /providers no debe romper el chat local.
+    try {
+      final (_, providers) = await _api.providers();
+      emit(state.copyWith(providers: providers));
+    } on Failure {
+      // sin proveedores: solo este equipo
     }
   }
 
@@ -178,6 +215,38 @@ class ChatCubit extends Cubit<ChatState> {
   }
 
   void selectModel(String model) => emit(state.copyWith(model: model));
+
+  /// Cambia dónde corre el siguiente turno. `null` = este equipo.
+  Future<void> selectProvider(String? id) async {
+    if (state.sending || id == state.provider) return;
+    if (id == null) {
+      emit(state.copyWith(
+        clearProvider: true,
+        remoteModels: const [],
+        model: state.models.isEmpty ? null : state.models.first.modelId,
+        clearModel: state.models.isEmpty,
+      ));
+      return;
+    }
+    emit(state.copyWith(provider: id, remoteModels: const [], clearModel: true, loading: true));
+    try {
+      final models = await _api.providerModels(id);
+      ProviderInfo? info;
+      for (final p in state.providers) {
+        if (p.id == id) info = p;
+      }
+      final preferred = info?.defaultModel;
+      emit(state.copyWith(
+        loading: false,
+        remoteModels: models,
+        model: preferred != null && models.contains(preferred)
+            ? preferred
+            : (models.isEmpty ? null : models.first),
+      ));
+    } on Failure catch (f) {
+      emit(state.copyWith(loading: false, error: f.message));
+    }
+  }
 
   void selectCollection(String? name) => name == null
       ? emit(state.copyWith(clearCollection: true))
@@ -210,7 +279,9 @@ class ChatCubit extends Cubit<ChatState> {
     final model = state.model;
     if (model == null) {
       emit(state.copyWith(
-          error: 'No hay modelos descargados. Descarga uno en la sección Modelos.'));
+          error: state.provider == null
+              ? 'No hay modelos descargados. Descarga uno en la sección Modelos.'
+              : 'Este proveedor no ofrece modelos. Revísalo en la sección Nube.'));
       return;
     }
     emit(state.copyWith(
@@ -229,6 +300,7 @@ class ChatCubit extends Cubit<ChatState> {
         if (state.activeId != null) 'conversation_id': state.activeId,
         if (state.collection != null) 'collection': state.collection,
         if (state.think != null) 'think': state.think,
+        if (state.provider != null) 'provider': state.provider,
       })) {
         switch (event['type']) {
           case 'start':

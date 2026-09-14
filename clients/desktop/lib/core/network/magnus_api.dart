@@ -233,6 +233,46 @@ class MagnusApi {
   Stream<Map<String, dynamic>> runAgent(String name, String message, {String? model}) =>
       _ndjson('/agents/$name/run', {'message': message, if (model != null) 'model': model});
 
+  // ------------------------------------------------ proveedores y Magnus Cloud
+
+  Future<(List<ProviderPreset>, List<ProviderInfo>)> providers() async {
+    final body = await _get('/providers');
+    return (
+      _list(body, 'presets').map(ProviderPreset.fromJson).toList(),
+      _list(body, 'providers').map(ProviderInfo.fromJson).toList(),
+    );
+  }
+
+  /// Crea o actualiza. `apiKey` solo se manda si el usuario escribió una nueva.
+  Future<ProviderInfo> saveProvider(String id,
+          {required String kind, String? name, String? baseUrl, String? apiKey, String? defaultModel}) async =>
+      ProviderInfo.fromJson(await _put('/providers/$id', {
+        'kind': kind,
+        if (name != null) 'name': name,
+        if (baseUrl != null) 'base_url': baseUrl,
+        if (apiKey != null && apiKey.isNotEmpty) 'api_key': apiKey,
+        if (defaultModel != null) 'default_model': defaultModel,
+      }));
+
+  Future<void> deleteProvider(String id) => _delete('/providers/$id');
+
+  Future<ProviderTest> testProvider(String id) async =>
+      ProviderTest.fromJson(await _post('/providers/$id/test', {}, _long));
+
+  Future<List<String>> providerModels(String id) async =>
+      ((await _get('/providers/$id/models'))['models'] as List? ?? const [])
+          .map((e) => e.toString())
+          .toList();
+
+  Future<CloudAccount> cloudAccount(String id) async =>
+      CloudAccount.fromJson(await _get('/providers/$id/account'));
+
+  Future<List<CreditPack>> cloudPacks(String id) async =>
+      _list(await _get('/providers/$id/packs'), 'packs').map(CreditPack.fromJson).toList();
+
+  Future<int> redeemCode(String id, String code) async =>
+      ((await _post('/providers/$id/redeem', {'code': code}))['added_credits'] as num? ?? 0).toInt();
+
   // ---------------------------------------------------------------- ajustes
 
   Future<DaemonSettings> daemonSettings() async => DaemonSettings.fromJson(await _get('/settings'));

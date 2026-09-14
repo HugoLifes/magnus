@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/agents/presentation/cubit/agents_cubit.dart';
 import '../../features/chat/presentation/cubit/chat_cubit.dart';
+import '../../features/cloud/presentation/cubit/cloud_cubit.dart';
 import '../../features/models/data/datasources/magnus_remote_datasource.dart';
 import '../../features/models/data/repositories/magnus_repository_impl.dart';
 import '../../features/models/domain/repositories/magnus_repository.dart';
@@ -52,6 +53,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => CatalogCubit(sl()));
   sl.registerLazySingleton(() => RagCubit(sl()));
   sl.registerLazySingleton(() => AgentsCubit(sl()));
+  sl.registerLazySingleton(() => CloudCubit(sl()));
   sl.registerLazySingleton(() => OverviewCubit(sl()));
   // Factory: la telemetría solo se consulta mientras Recursos está abierta.
   sl.registerFactory(() => SystemCubit(sl()));

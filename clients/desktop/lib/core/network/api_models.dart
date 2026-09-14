@@ -148,6 +148,9 @@ class TurnMetrics {
     required this.cloudReference,
     required this.cloudCostUsd,
     required this.savingsUsd,
+    this.provider = 'local',
+    this.location = 'local',
+    this.providerCostUsd,
   });
 
   final String model;
@@ -163,6 +166,15 @@ class TurnMetrics {
   final double cloudCostUsd;
   final double savingsUsd;
 
+  /// Dónde corrió: 'local' (este equipo), 'lan' (servidor en tu red) o 'cloud'.
+  final String provider;
+  final String location;
+
+  /// Lo que cobró el proveedor remoto; null si fue gratis o no se sabe.
+  final double? providerCostUsd;
+
+  bool get isRemote => location != 'local';
+
   factory TurnMetrics.fromJson(Map<String, dynamic> j) => TurnMetrics(
         model: _s(j['model']),
         tokensIn: _i(j['tokens_in']),
@@ -176,6 +188,9 @@ class TurnMetrics {
         cloudReference: _s(j['cloud_reference']),
         cloudCostUsd: _d(j['cloud_cost_usd']),
         savingsUsd: _d(j['savings_usd']),
+        provider: _s(j['provider'], 'local'),
+        location: _s(j['location'], 'local'),
+        providerCostUsd: _dn(j['provider_cost_usd']),
       );
 }
 
@@ -550,5 +565,179 @@ class DaemonSettings {
         hardwareLifetimeYears: _d(j['hardware_lifetime_years']),
         hoursPerDay: _d(j['hours_per_day']),
         cloudReference: _s(j['cloud_reference'], 'auto'),
+      );
+}
+
+// ---------------------------------------------------------------------------
+// Proveedores externos y Magnus Cloud
+// ---------------------------------------------------------------------------
+
+/// Tipo de proveedor que ofrece el daemon (vLLM, NVIDIA API, Groq…).
+class ProviderPreset {
+  const ProviderPreset({
+    required this.kind,
+    required this.label,
+    required this.baseUrl,
+    required this.needsKey,
+    this.keyUrl,
+    required this.notice,
+    required this.description,
+  });
+
+  final String kind;
+  final String label;
+  final String baseUrl;
+  final bool needsKey;
+  final String? keyUrl;
+  final String notice;
+  final String description;
+
+  factory ProviderPreset.fromJson(Map<String, dynamic> j) => ProviderPreset(
+        kind: _s(j['kind']),
+        label: _s(j['label']),
+        baseUrl: _s(j['base_url']),
+        needsKey: j['needs_key'] == true,
+        keyUrl: _sn(j['key_url']),
+        notice: _s(j['notice']),
+        description: _s(j['description']),
+      );
+}
+
+/// Proveedor configurado. La clave nunca viaja de vuelta: solo `hasKey`.
+class ProviderInfo {
+  const ProviderInfo({
+    required this.id,
+    required this.kind,
+    required this.name,
+    required this.baseUrl,
+    required this.enabled,
+    required this.location,
+    required this.hasKey,
+    this.defaultModel,
+    this.notice = '',
+  });
+
+  final String id;
+  final String kind;
+  final String name;
+  final String baseUrl;
+  final bool enabled;
+  final String location;
+  final bool hasKey;
+  final String? defaultModel;
+  final String notice;
+
+  bool get isCloud => kind == 'magnus-cloud';
+  bool get isServer => kind == 'vllm' || kind == 'openai-compatible';
+
+  factory ProviderInfo.fromJson(Map<String, dynamic> j) => ProviderInfo(
+        id: _s(j['id']),
+        kind: _s(j['kind']),
+        name: _s(j['name']),
+        baseUrl: _s(j['base_url']),
+        enabled: j['enabled'] != false,
+        location: _s(j['location'], 'cloud'),
+        hasKey: j['has_key'] == true,
+        defaultModel: _sn(j['default_model']),
+        notice: _s(j['notice']),
+      );
+}
+
+class ProviderTest {
+  const ProviderTest({required this.ok, this.detail, this.models = 0, this.sample = const []});
+  final bool ok;
+  final String? detail;
+  final int models;
+  final List<String> sample;
+
+  factory ProviderTest.fromJson(Map<String, dynamic> j) => ProviderTest(
+        ok: j['ok'] == true,
+        detail: _sn(j['detail']),
+        models: _i(j['models']),
+        sample: _ls(j['sample']),
+      );
+}
+
+class CreditPack {
+  const CreditPack({
+    required this.id,
+    required this.name,
+    required this.priceUsd,
+    required this.credits,
+    required this.bonusPct,
+    required this.tagline,
+    required this.featured,
+    this.approxTokens,
+    this.referenceModel,
+  });
+
+  final String id;
+  final String name;
+  final double priceUsd;
+  final int credits;
+  final int bonusPct;
+  final String tagline;
+  final bool featured;
+  final int? approxTokens;
+  final String? referenceModel;
+
+  factory CreditPack.fromJson(Map<String, dynamic> j) => CreditPack(
+        id: _s(j['id']),
+        name: _s(j['name']),
+        priceUsd: _d(j['price_usd']),
+        credits: _i(j['credits']),
+        bonusPct: _i(j['bonus_pct']),
+        tagline: _s(j['tagline']),
+        featured: j['featured'] == true,
+        approxTokens: (j['approx_tokens'] as num?)?.toInt(),
+        referenceModel: _sn(j['reference_model']),
+      );
+}
+
+class CreditMovement {
+  const CreditMovement({
+    required this.kind,
+    required this.credits,
+    required this.ref,
+    this.meta = const {},
+    required this.createdAt,
+  });
+
+  final String kind; // grant | topup | debit | adjust
+  final double credits;
+  final String ref;
+  final Map<String, dynamic> meta;
+  final double createdAt;
+
+  factory CreditMovement.fromJson(Map<String, dynamic> j) => CreditMovement(
+        kind: _s(j['kind']),
+        credits: _d(j['credits']),
+        ref: _s(j['ref']),
+        meta: _m(j['meta']),
+        createdAt: _d(j['created_at']),
+      );
+}
+
+class CloudAccount {
+  const CloudAccount({
+    required this.name,
+    required this.balanceCredits,
+    required this.balanceUsd,
+    required this.freeMonthlyCredits,
+    this.history = const [],
+  });
+
+  final String name;
+  final double balanceCredits;
+  final double balanceUsd;
+  final int freeMonthlyCredits;
+  final List<CreditMovement> history;
+
+  factory CloudAccount.fromJson(Map<String, dynamic> j) => CloudAccount(
+        name: _s(_m(j['account'])['name']),
+        balanceCredits: _d(j['balance_credits']),
+        balanceUsd: _d(j['balance_usd']),
+        freeMonthlyCredits: _i(j['free_monthly_credits']),
+        history: _lm(j['history']).map(CreditMovement.fromJson).toList(),
       );
 }

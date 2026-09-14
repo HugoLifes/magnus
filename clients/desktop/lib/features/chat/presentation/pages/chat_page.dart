@@ -5,10 +5,13 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../core/network/api_models.dart';
 import '../../../../core/responsive/breakpoints.dart';
+import '../../../../core/theme/brand.dart';
 import '../../../../core/theme/magnus_theme.dart';
 import '../../../../shared/format.dart';
 import '../../../../shared/widgets/forms.dart';
+import '../../../../shared/widgets/magnus_kit.dart';
 import '../../../../shared/widgets/ui.dart';
 import '../cubit/chat_cubit.dart';
 
@@ -223,6 +226,32 @@ class _Thread extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text('Dónde', style: t.small),
+                  ChoiceChipX(
+                    label: 'Este equipo',
+                    icon: LucideIcons.cpu,
+                    selected: state.provider == null,
+                    onTap: () => cubit.selectProvider(null),
+                  ),
+                  for (final p in state.providers.where((p) => p.enabled))
+                    ChoiceChipX(
+                      label: p.name,
+                      icon: p.location == 'lan' ? LucideIcons.network : LucideIcons.cloud,
+                      selected: p.id == state.provider,
+                      onTap: () => cubit.selectProvider(p.id),
+                    ),
+                  if (state.providerLocation != 'local') ...[
+                    const SizedBox(width: 4),
+                    LocationChip(state.providerLocation),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   Icon(LucideIcons.zap, size: 16, color: state.model == null ? t.warn : t.ok),
@@ -234,15 +263,19 @@ class _Thread extends StatelessWidget {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          if (state.models.isEmpty)
-                            Text('sin modelos descargados', style: t.small.copyWith(color: t.warn)),
-                          for (final m in state.models)
+                          if (state.modelIds.isEmpty)
+                            Text(
+                                state.provider == null
+                                    ? 'sin modelos descargados'
+                                    : 'el proveedor no ofrece modelos',
+                                style: t.small.copyWith(color: t.warn)),
+                          for (final id in state.modelIds)
                             Padding(
                               padding: const EdgeInsets.only(right: 6),
                               child: ChoiceChipX(
-                                label: m.modelId,
-                                selected: m.modelId == state.model,
-                                onTap: () => cubit.selectModel(m.modelId),
+                                label: id,
+                                selected: id == state.model,
+                                onTap: () => cubit.selectModel(id),
                               ),
                             ),
                         ],
@@ -252,7 +285,7 @@ class _Thread extends StatelessWidget {
                   const SizedBox(width: 10),
                   Pill('${state.tokens} tokens', color: t.info, icon: LucideIcons.coins),
                   const SizedBox(width: 8),
-                  Pill('${formatUsd(state.savings)} ahorro', color: t.ok, icon: LucideIcons.piggyBank),
+                  Pill('${formatUsd(state.savings)} ahorro', color: Brand.amber, icon: LucideIcons.piggyBank),
                 ],
               ),
               const SizedBox(height: 10),
@@ -427,30 +460,38 @@ class _ThinkingState extends State<_Thinking> {
 
 class _MetricsLine extends StatelessWidget {
   const _MetricsLine(this.m);
-  final dynamic m; // TurnMetrics
+  final TurnMetrics m;
 
   @override
   Widget build(BuildContext context) {
     final t = MagnusTheme.of(context);
-    final saving = m.savingsUsd as double;
+    final saving = m.savingsUsd;
     final parts = <String>[
       '${m.tokensOut} tok',
-      if (m.tokensPerS != null) '${(m.tokensPerS as double).toStringAsFixed(0)} tok/s',
-      if (m.ttftS != null) '1er token ${(m.ttftS as double).toStringAsFixed(2)} s',
-      if (m.avgPowerW != null) '${(m.avgPowerW as double).toStringAsFixed(1)} W',
-      'local ${formatUsd(m.localCostUsd as double)}',
-      '${m.cloudReference} ${formatUsd(m.cloudCostUsd as double)}',
+      if (m.tokensPerS != null) '${m.tokensPerS!.toStringAsFixed(0)} tok/s',
+      if (m.ttftS != null) '1er token ${m.ttftS!.toStringAsFixed(2)} s',
+      if (m.avgPowerW != null) '${m.avgPowerW!.toStringAsFixed(1)} W',
+      if (m.isRemote)
+        m.providerCostUsd == null ? 'sin coste' : 'cobrado ${formatUsd(m.providerCostUsd!)}'
+      else
+        'local ${formatUsd(m.localCostUsd)}',
+      '${m.cloudReference} ${formatUsd(m.cloudCostUsd)}',
     ];
     return Padding(
       padding: const EdgeInsets.only(top: 6, left: 4),
       child: Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 8,
+        runSpacing: 4,
         children: [
+          if (m.isRemote) LocationChip(m.location, providerName: m.provider),
           Text(parts.join(' · '), style: t.small.copyWith(fontSize: 11, color: t.textFaint)),
+          // El ahorro es la única cifra en ámbar (docs/INFORME_PRODUCTO.md §8.2).
           Text(saving >= 0 ? 'ahorro ${formatUsd(saving)}' : 'sobrecoste ${formatUsd(-saving)}',
               style: t.small.copyWith(
-                  fontSize: 11, fontWeight: FontWeight.w700, color: saving >= 0 ? t.ok : t.warn)),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: saving >= 0 ? Brand.amber : Brand.coral)),
         ],
       ),
     );
