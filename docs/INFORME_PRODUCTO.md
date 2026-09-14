@@ -536,6 +536,85 @@ no están confirmadas por NVIDIA [Publicado].
 
 ---
 
+## 13. Implementado por el fork (2026-09-13)
+
+Rama `feature/jetson-orin`, commits `e9d2197`, `8bf7480`, `cb26793` (y `9ce0ea8` con marca e
+informe). 321 tests, ruff limpio, `flutter analyze` sin problemas, OpenAPI regenerado solo con
+adiciones.
+
+### Backend
+
+- **`core/providers.py`**:
+  - Proveedores compatibles con OpenAI: `vllm`, `nvidia`, `groq`, `openrouter`,
+    `openai-compatible` y `magnus-cloud`.
+  - `OpenAICompatClient` devuelve fragmentos con forma de Ollama, así `ChatService` no cambia
+    su lógica.
+  - Validaciones: un servidor fuera de la red exige https; el id `local` está reservado; la
+    red local se detecta con rangos explícitos (RFC1918, CGNAT de Tailscale, ULA).
+- **`core/secrets.py`**: llavero del sistema con respaldo en `secrets.json` para Docker y Jetson.
+- **Chat**: `provider` por turno, sin cambiar el orden validar → skills → RAG → cargar modelo.
+  Un turno remoto no carga modelos locales ni atribuye energía de este equipo.
+- **Medidor**: campos nuevos `provider`, `location` y `provider_cost_usd`. El ahorro se calcula
+  contra lo que cobró el proveedor.
+- **Daemon**: `/providers` (GET, PUT, DELETE, `models`, `test`) y, solo para Magnus Cloud,
+  `/providers/{id}/account`, `/packs` y `/redeem`. La clave nunca vuelve en las respuestas.
+- **`cloud/`**, el gateway de créditos delante de cualquier vLLM:
+  - Libro mayor en SQLite con saldo como suma de movimientos y `(account_id, ref)` único.
+  - Bono mensual de 100 créditos.
+  - Cobro con los tokens que reporta el servidor, redondeando hacia arriba.
+  - `max_tokens` se recorta a lo que paga el saldo; sin saldo responde 402.
+  - Vales en Crockford base32, canjeables una sola vez.
+  - CLI del operador en `python -m cloud.admin`.
+  - Despliegue en `deploy/docker-compose.cloud.yml`.
+  - Paquetes: Chispa $5 / 5,000; **Impulso $20 / 22,000**; Turbo $50 / 60,000; Estudio
+    $200 / 260,000 créditos. 1 crédito = $0.001.
+
+### App (Flutter)
+
+- **Kit** `shared/widgets/magnus_kit.dart`: `AuroraBackdrop`, `GlowButton`, `SpotlightCard` con
+  borde giratorio para la opción destacada, `FitBadge` de 4 estados, `LocationChip` y
+  `CreditRing`. Respeta «reducir movimiento».
+- **Sección Nube**: héroe «Tu equipo primero», saldo con canje de vales, paquetes, APIs con tu
+  clave (con el aviso de términos de NVIDIA) y servidores vLLM de tu red.
+- **Chat**: selector «Dónde», modelos del proveedor, chip de ubicación en la línea del medidor y
+  el ahorro en ámbar.
+
+### Prueba en vivo en el Jetson [Verificado]
+
+El gateway corrió en un contenedor temporal (imagen `magnus-nim_magnus`, sin construir nada),
+con `nim_ollama` en `/v1` como servidor y `qwen3:0.6b`. El aforo no tenía videos en cola y no se
+tocó.
+
+| Prueba | Resultado |
+|---|---|
+| Sin clave | 401 |
+| Cuenta nueva | 100 créditos del bono mensual |
+| Chat sin streaming | 21 tokens de entrada y 120 de salida, 4.4 s, cobrados 0.026 créditos |
+| Chat con streaming | `usage` capturado del último fragmento, cobrados 0.025 créditos |
+| Modelo inexistente | 404 con la lista de disponibles |
+| Vale Chispa en minúsculas y con espacios | +5,000 créditos |
+| Mismo vale otra vez | «Ese código ya se canjeó.» |
+| Memoria del gateway | 43 MiB |
+
+**Hallazgo:** con modelos que razonan (qwen3), un `max_tokens` bajo se gasta completo en
+razonamiento y la respuesta llega vacía, pero los tokens se cobran. Cobrar razonamiento es
+estándar, pero la app debe avisarlo y ofrecer apagar «Razonar». `chat_template_kwargs` apaga
+el razonamiento en vLLM; por la API `/v1` de Ollama no se probó.
+
+### Pendiente
+
+- **Pasarela de pago**: hoy los paquetes se venden como vales. Hay que decidir entre Mercado
+  Pago y Stripe para el webhook que emite el vale al pagar.
+- **Revisión visual de la app**: no se compiló para Windows porque la PC iba lenta; hay que
+  mirar la sección Nube compilada.
+- **Agentes con proveedores remotos**: `AgentRunner` sigue usando solo Ollama. Falta traducir
+  `tool_calls` al formato de OpenAI.
+- **Daemon del Jetson**: no se reconstruyó `nim_magnus` con estos cambios.
+- **Magnus Cloud en producción**: medir el coste real por millón de tokens con vLLM en el B200
+  antes de fijar precios, y ponerlo detrás de TLS.
+
+---
+
 ## 12. Fuentes
 
 Mercado y competencia:
