@@ -806,6 +806,51 @@ def provider_models(provider_id: str, registry: ProvidersDep) -> dict:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+class RedeemRequest(BaseModel):
+    code: str
+
+
+def _cloud_client(registry: ProviderRegistry, provider_id: str):
+    try:
+        client, provider = registry.client(provider_id)
+    except ProviderError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if provider.kind is not ProviderKind.MAGNUS_CLOUD:
+        raise HTTPException(status_code=400,
+                            detail="Solo Magnus Cloud tiene saldo, paquetes y vales.")
+    return client
+
+
+@api.get("/providers/{provider_id}/account")
+def provider_account(provider_id: str, registry: ProvidersDep) -> dict:
+    """Saldo de créditos y movimientos en Magnus Cloud."""
+    client = _cloud_client(registry, provider_id)
+    try:
+        return client.account()
+    except ProviderError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@api.get("/providers/{provider_id}/packs")
+def provider_packs(provider_id: str, registry: ProvidersDep) -> dict:
+    """Paquetes de créditos que vende Magnus Cloud."""
+    client = _cloud_client(registry, provider_id)
+    try:
+        return client.packs()
+    except ProviderError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@api.post("/providers/{provider_id}/redeem")
+def provider_redeem(provider_id: str, req: RedeemRequest, registry: ProvidersDep) -> dict:
+    """Canjea un vale de créditos."""
+    client = _cloud_client(registry, provider_id)
+    try:
+        return client.redeem(req.code)
+    except ProviderError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @api.post("/providers/{provider_id}/test")
 def provider_test(provider_id: str, registry: ProvidersDep) -> dict:
     """Prueba la conexión y la clave sin gastar tokens: solo lista modelos."""

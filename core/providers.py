@@ -273,6 +273,9 @@ class OpenAICompatClient:
         except ValueError:
             detail = response.text
         status = response.status_code
+        if status == 400:
+            # Mensajes pensados para el usuario (p. ej. "Ese código ya se canjeó").
+            return ProviderError(str(detail))
         if status == 401 or status == 403:
             return ProviderError(f"La clave de {self._name} no es válida o no tiene permiso.")
         if status == 402:
@@ -297,6 +300,26 @@ class OpenAICompatClient:
         if r.status_code >= 400:
             raise self._error(r)
         return sorted(m.get("id", "") for m in r.json().get("data", []) if m.get("id"))
+
+    # --- Magnus Cloud: saldo, paquetes y vales (gateway de cloud/gateway.py) ---
+
+    def _json(self, method: str, path: str, body: dict | None = None) -> dict:
+        try:
+            r = self._http.request(method, f"{self.base_url}{path}", json=body, timeout=15)
+        except httpx.HTTPError as exc:
+            raise self._connect_error(exc) from exc
+        if r.status_code >= 400:
+            raise self._error(r)
+        return r.json()
+
+    def account(self) -> dict:
+        return self._json("GET", "/account")
+
+    def packs(self) -> dict:
+        return self._json("GET", "/packs")
+
+    def redeem(self, code: str) -> dict:
+        return self._json("POST", "/redeem", {"code": code})
 
     def parameter_size_b(self, model: str) -> float | None:
         """Tamaño del modelo desde su nombre ('llama-3.1-70b-instruct' → 70)."""

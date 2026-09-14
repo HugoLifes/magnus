@@ -158,3 +158,17 @@ def test_tamano_por_nombre():
     assert client.parameter_size_b("meta/llama-3.3-70b-instruct") == 70
     assert client.parameter_size_b("qwen3-1.7b") == 1.7
     assert client.parameter_size_b("gpt-oss") is None
+
+
+def test_cuenta_y_canje_en_magnus_cloud():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/account"):
+            return httpx.Response(200, json={"balance_credits": 97.9})
+        if request.url.path.endswith("/redeem"):
+            return httpx.Response(400, json={"error": {"message": "Ese código ya se canjeó."}})
+        return httpx.Response(404)
+
+    client = _client(handler)
+    assert client.account()["balance_credits"] == 97.9
+    with pytest.raises(ProviderError, match="^Ese código ya se canjeó.$"):
+        client.redeem("MAG-1")

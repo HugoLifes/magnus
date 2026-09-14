@@ -1,0 +1,20 @@
+{
+  "_nota": "Precios de VENTA en créditos por millón de tokens (1 crédito = 0.001 USD). Ajusta con el coste medido de tu equipo: coste por hora del servidor ÷ millones de tokens por hora. 'upstream_model' es el nombre con el que vLLM sirve el modelo.",
+  "upstream": "http://nim_magnus_vllm:8000/v1",
+  "models": [
+    {
+      "id": "qwen3-32b",
+      "upstream_model": "Qwen/Qwen3-32B-AWQ",
+      "input_credits_per_mtok": 300,
+      "output_credits_per_mtok": 900,
+      "label": "Qwen3 32B · razona y usa herramientas"
+    },
+    {
+      "id": "gpt-oss-20b",
+      "upstream_model": "openai/gpt-oss-20b",
+      "input_credits_per_mtok": 100,
+      "output_credits_per_mtok": 400,
+      "label": "gpt-oss 20B · rápido y económico"
+    }
+  ]
+}

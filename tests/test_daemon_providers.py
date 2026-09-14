@@ -110,3 +110,32 @@ def test_chat_por_proveedor(ctx):
 
     local = client.post("/chat", json={"model": "qwen2.5:1.5b", "message": "Hola"}).json()
     assert local["metrics"]["location"] == "local"
+
+
+def test_magnus_cloud_saldo_paquetes_y_vales(ctx):
+    client, registry = ctx
+    registry.remote.account = lambda: {"balance_credits": 100.0}
+    registry.remote.packs = lambda: {"packs": [{"id": "impulso", "featured": True}]}
+
+    def redeem(code):
+        if code != "MAG-AAAA-BBBB-CCCC":
+            raise ProviderError("Ese código ya se canjeó.")
+        return {"added_credits": 22000, "balance_credits": 22100.0}
+
+    registry.remote.redeem = redeem
+    client.put("/providers/magnus-cloud", json={
+        "kind": "magnus-cloud", "base_url": "https://cloud.example/v1", "api_key": "mgk_x"})
+
+    assert client.get("/providers/magnus-cloud/account").json()["balance_credits"] == 100.0
+    assert client.get("/providers/magnus-cloud/packs").json()["packs"][0]["featured"]
+    ok = client.post("/providers/magnus-cloud/redeem", json={"code": "MAG-AAAA-BBBB-CCCC"})
+    assert ok.json()["added_credits"] == 22000
+    bad = client.post("/providers/magnus-cloud/redeem", json={"code": "MAG-0000-0000-0000"})
+    assert bad.status_code == 400 and "ya se canjeó" in bad.json()["detail"]
+
+
+def test_saldo_solo_en_magnus_cloud(ctx):
+    client, _ = ctx
+    client.put("/providers/spark", json={"kind": "vllm", "base_url": "http://192.168.1.40:8000/v1"})
+    assert client.get("/providers/spark/account").status_code == 400
+    assert client.get("/providers/no-existe/account").status_code == 404

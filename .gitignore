@@ -32,3 +32,6 @@ Thumbs.db
 # Agent skills (referencia local, no parte del producto)
 .agents/
 COMMIT_MSG.tmp
+
+# Precios de Magnus Cloud de cada operador (ver deploy/cloud/models.example.json)
+deploy/cloud/models.json
