@@ -131,24 +131,30 @@ class Recommendation:
         }
 
 
-def usable_gib(profile: PlatformProfile, gpu: GPU | None) -> float:
-    """Memoria con la que se puede contar para un modelo en esta máquina."""
+def usable_gib(profile: PlatformProfile, gpu: GPU | None, evictable_gib: float = 0.0) -> float:
+    """Memoria con la que se puede contar para un modelo en esta máquina.
+
+    `evictable_gib`: memoria de los modelos cargados que saldrían al cargar otro
+    (en equipos de un solo modelo). Sin contarla, con qwen3:0.6b cargado el Jetson
+    anunciaba "0 de 29 caben en 0.9 GiB".
+    """
     if gpu is None:
         return 0.0
     if profile.unified_memory:
         # Lo libre ahora, sin pasar de lo que deja la reserva del sistema, menos la
         # holgura de CUDA: el mismo criterio con el que la guarda permite cargar.
-        free = min(gpu.free_gib, profile.total_memory_gib - profile.reserve_gib)
+        free = min(gpu.free_gib + evictable_gib, profile.total_memory_gib - profile.reserve_gib)
         return round(max(0.0, free - UNIFIED_CUDA_HEADROOM_GIB), 1)
     # GPU dedicada: el total (varias GPUs sumadas) menos el margen del escritorio.
     return round(max(0.0, profile.total_memory_gib - 1.0), 1)
 
 
 def recommend(
-    profile: PlatformProfile, gpu: GPU | None, capability: str | None = None
+    profile: PlatformProfile, gpu: GPU | None, capability: str | None = None,
+    evictable_gib: float = 0.0,
 ) -> list[Recommendation]:
     """Catálogo con veredicto por modelo: primero lo que cabe, del más capaz al menor."""
-    usable = usable_gib(profile, gpu)
+    usable = usable_gib(profile, gpu, evictable_gib)
     recs = []
     for model in CATALOG:
         if capability and capability not in model.capabilities:
@@ -160,6 +166,13 @@ def recommend(
             note = "Correría repartido entre GPU y CPU, bastante más lento."
         recs.append(Recommendation(model, required, fits, note))
     return sorted(recs, key=lambda r: (not r.fits, -r.model.params_b if r.fits else r.required_gib))
+
+
+def evictable_gib(profile: PlatformProfile, loaded_sizes_gib: list[float | None]) -> float:
+    """Memoria que liberaría Ollama al cargar otro modelo: solo si cabe uno a la vez."""
+    if profile.max_loaded_models > 1:
+        return 0.0
+    return round(sum(s or 0.0 for s in loaded_sizes_gib), 2)
 
 
 def best_fit(profile: PlatformProfile, gpu: GPU | None, capability: str = CHAT) -> CatalogModel | None:

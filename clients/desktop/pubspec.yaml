@@ -57,6 +57,9 @@ msix_config:
   display_name: Magnus
   publisher_display_name: Magnus
   identity_name: io.magnus.desktop
-  msix_version: 0.0.1.0
+  msix_version: 0.9.0.0
+  # Sin certificado propio se firma con el de prueba del paquete `msix`. Instalar
+  # ese certificado en el equipo es decisión del usuario, no del build.
+  install_certificate: false
   logo_path: assets\icon.png
   capabilities: internetClient

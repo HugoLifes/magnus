@@ -9,6 +9,7 @@ from core.catalog import (
     CODE,
     EMBEDDING,
     best_fit,
+    evictable_gib,
     get_catalog_model,
     recommend,
     usable_gib,
@@ -42,6 +43,15 @@ def test_memoria_util_por_familia():
     dos = [RTX4090, RTX4090]
     assert usable_gib(detect_platform(dos), RTX4090) == 47.0       # GPUs sumadas
     assert usable_gib(detect_platform([]), None) == 0.0
+
+
+def test_memoria_de_modelos_que_saldrian():
+    orin = detect_platform([ORIN])
+    # Caso medido: 0.9 GiB utilizables con qwen3:0.6b (0.87 GiB) cargado.
+    assert usable_gib(orin, ORIN, evictable_gib=1.0) == 3.1
+    assert evictable_gib(orin, [0.87, None]) == 0.87
+    rtx = detect_platform([RTX4090])
+    assert evictable_gib(rtx, [4.0]) == 0.0  # caben dos: nadie sale
 
 
 def test_jetson_con_el_aforo_corriendo():

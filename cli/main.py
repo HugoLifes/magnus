@@ -741,17 +741,20 @@ def catalog(
                                    help="chat, code, reasoning, vision, tools o embedding."),
 ) -> None:
     """Modelos recomendados para ESTA máquina: qué cabe y qué no."""
-    from core.catalog import recommend, usable_gib
+    from core.catalog import evictable_gib, recommend, usable_gib
 
     gpus = detect_gpus()
     profile = detect_platform(gpus)
     gpu = gpus[0] if gpus else None
+    manager = RuntimeManager(ollama_url=load_settings().ollama_url)
+    loaded = manager.list_loaded() if manager.ollama_available() else []
+    evictable = evictable_gib(profile, [m.size_vram_gib for m in loaded])
     table = Table(title=f"Catálogo para {profile.display_name} "
-                        f"({usable_gib(profile, gpu)} GiB utilizables)")
+                        f"({usable_gib(profile, gpu, evictable)} GiB utilizables)")
     for col in ("Modelo", "Params (B)", "Descarga", "Necesita", "Capacidades", "¿Cabe?"):
         table.add_column(col, justify="right" if col in ("Params (B)", "Descarga", "Necesita")
                          else "left")
-    for rec in recommend(profile, gpu, capability):
+    for rec in recommend(profile, gpu, capability, evictable):
         m = rec.model
         verdict = "[green]✓[/green]" if rec.fits else ("[yellow]lento[/yellow]" if rec.note
                                                         else "[red]✗[/red]")

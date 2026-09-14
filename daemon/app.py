@@ -49,7 +49,7 @@ from core.agent import (
     AgentRunner,
     build_agent,
 )
-from core.catalog import recommend, usable_gib
+from core.catalog import evictable_gib, recommend, usable_gib
 from core.chat import ChatError, ChatService, OllamaChatClient
 from core.config import Settings, data_dir, load_settings, save_settings
 from core.model_registry import MODEL_REGISTRY
@@ -322,15 +322,17 @@ def models() -> dict:
 
 
 @api.get("/catalog")
-def catalog(capability: str | None = None) -> dict:
+def catalog(manager: ManagerDep, capability: str | None = None) -> dict:
     """Modelos recomendados para ESTA máquina, con veredicto de si caben."""
     gpus = detect_gpus()
     profile = detect_platform(gpus)
     gpu = gpus[0] if gpus else None
+    # Donde cabe un solo modelo, el cargado saldría al cargar otro: su memoria cuenta.
+    evictable = evictable_gib(profile, [m.size_vram_gib for m in manager.list_loaded()])
     return {
         "family": profile.family.value,
-        "usable_gib": usable_gib(profile, gpu),
-        "models": [r.to_dict() for r in recommend(profile, gpu, capability)],
+        "usable_gib": usable_gib(profile, gpu, evictable),
+        "models": [r.to_dict() for r in recommend(profile, gpu, capability, evictable)],
     }
 
 

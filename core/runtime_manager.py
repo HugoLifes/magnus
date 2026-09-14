@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import enum
 import json
+import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any
@@ -28,9 +29,15 @@ import httpx
 
 from core.compatibility import load_memory_verdict, ollama_required_gib
 from core.hardware import GPU, detect_gpus
+from core.platform import detect_platform
 from core.reclaim import reclaim_for
 
 _BYTES_PER_GIB = 1024**3
+# Espera a que Ollama suelte los modelos liberados: hasta 15 s en pasos de 0.3 s,
+# más un margen corto para que el kernel refleje la memoria devuelta.
+_EVICT_POLL_S = 0.3
+_EVICT_POLLS = 50
+_EVICT_SETTLE_S = 0.5
 
 
 class RuntimeBackend(str, enum.Enum):
@@ -214,10 +221,47 @@ class RuntimeManager:
         ollama_url: str = "http://127.0.0.1:11434",
         gpu_provider: Callable[[], list[GPU]] = detect_gpus,
         reclaimer: Callable[[float], float | None] | None = reclaim_for,
+        max_loaded_models: int | None = None,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self._ollama = OllamaClient(ollama_url)
         self._gpus = gpu_provider
         self._reclaimer = reclaimer
+        # None: lo decide la familia de hardware detectada (core/platform.py).
+        self._max_loaded = max_loaded_models
+        self._sleep = sleep
+
+    def _make_room(self, model_id: str, gpus: list[GPU]) -> list[str]:
+        """Libera los modelos que sobren para que quepa `model_id`.
+
+        Ollama expulsa por su cuenta al llegar a OLLAMA_MAX_LOADED_MODELS, pero la
+        guarda de memoria mira ANTES: con el modelo viejo todavía cargado veía
+        memoria de menos y se negaba. Medido en el Jetson: con qwen3:0.6b cargado
+        (0.87 GiB) rechazó nomic-embed-text por 1.5 GiB libres cuando, expulsando
+        el de chat, había ~2.4. Devuelve los modelos liberados.
+        """
+        limit = self._max_loaded
+        if limit is None:
+            limit = detect_platform(gpus).max_loaded_models
+        target = {model_id, f"{model_id}:latest"}
+        others = [m for m in self._ollama.list_running() if m.get("name") not in target]
+        if len(others) < max(limit, 1):
+            return []
+        # Primero los que antes iban a caducar: son los que menos se han usado.
+        others.sort(key=lambda m: m.get("expires_at") or "")
+        evicted = []
+        for m in others[: len(others) - max(limit, 1) + 1]:
+            self._ollama.unload_from_vram(m["name"])
+            evicted.append(m["name"])
+        # keep_alive=0 responde al instante pero el proceso del modelo tarda en
+        # salir: medido en el Jetson, al releer la memoria justo después seguía
+        # ocupada y la guarda se negaba igual. Se espera a que desaparezca de /api/ps.
+        for _ in range(_EVICT_POLLS):
+            if not {m.get("name") for m in self._ollama.list_running()} & set(evicted):
+                break
+            self._sleep(_EVICT_POLL_S)
+        self._sleep(_EVICT_SETTLE_S)
+        return evicted
 
     def ensure_loaded(self, model_id: str) -> LoadedModel | None:
         """Garantiza que el modelo esté cargado antes de usarlo.
@@ -264,7 +308,16 @@ class RuntimeManager:
         if pull_if_missing and not self._model_exists_locally(model_id):
             self._ollama.pull(model_id)
 
+        # Ya cargado: no hay nada que comprobar. Medido en el Jetson: pedir otra vez
+        # un modelo cargado hacía que la guarda contara su propia memoria como
+        # ocupada y rechazara un modelo que estaba respondiendo a 94 tok/s.
+        for entry in self._ollama.list_running():
+            if entry.get("name") in (model_id, f"{model_id}:latest"):
+                return self._ollama_entry_to_loaded(entry)
+
         gpus = self._gpus()
+        if self._make_room(model_id, gpus):
+            gpus = self._gpus()  # la memoria libre cambió al liberar
         gpu = gpus[0] if gpus else None
         size = self._local_size_gib(model_id)
         allowed, note = load_memory_verdict(size, gpu)
