@@ -129,7 +129,7 @@ def _base_profile(gpu: GPU | None) -> PlatformProfile:
             reserve_gib=reserve,
             notes=[
                 "Memoria compartida con el SO: si se agota, se cuelga el equipo entero.",
-                "Imagen de Ollama para Jetson: dustynv/ollama (L4T r36), no la oficial.",
+                "Ollama en Docker: la imagen oficial ollama/ollama trae soporte JetPack 6.",
                 "Modo de energía máximo: sudo nvpmodel -m 0 (MAXN).",
             ],
         )

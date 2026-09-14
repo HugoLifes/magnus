@@ -358,7 +358,7 @@ class E2E:
                     f"local ${u['local_cost_usd']:.6f} · nube ${u['cloud_cost_usd']:.6f} · "
                     f"ahorro ${u['savings_usd']:.6f}")
 
-    def token(self, c: Check) -> None:
+    def token_required(self, c: Check) -> None:
         r = httpx.get(f"{self.url}/platform", timeout=10)
         expect(r.status_code == 401, f"sin token debería dar 401 y dio {r.status_code}")
         c.detail = "sin token → 401, con token → 200"
@@ -409,7 +409,7 @@ def main() -> int:
     e2e.run("ajustes del medidor", e2e.settings_roundtrip)
     e2e.run("medidor acumulado", e2e.usage)
     if args.token:
-        e2e.run("token de acceso", e2e.token)
+        e2e.run("token de acceso", e2e.token_required)
     e2e.run("limpieza", e2e.cleanup)
 
     counts = {s: sum(1 for c in e2e.checks if c.status == s) for s in ("ok", "aviso", "fallo")}

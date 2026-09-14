@@ -36,7 +36,8 @@ toda la familia NVIDIA:
 | Agentes con herramientas | ✅ | YAML, tool calling de Ollama, herramientas seguras; `/agents`, `magnus agent` |
 | Auth si se expone en red | ✅ | Token obligatorio fuera de loopback; `magnus token new` |
 | Cliente Flutter conectado | ✅ | Todas las secciones con la API real; probado contra el Jetson |
-| Instalador | 🟡 | Scripts por usuario para Windows y Linux; falta ejecutable firmado |
+| Instalador | 🟡 | Scripts por usuario (Windows, Linux) y `.msix` de la app firmado con certificado de prueba; falta certificado real |
+| Prueba e2e en vivo | ✅ | `scripts/e2e.py`: 19 ok en el Jetson Orin Nano (chat, RAG, agentes, cambios de modelo, concurrencia, token, persistencia) |
 | CI verde | ✅ | ruff limpio, 264 tests |
 | Contrato OpenAPI congelado | ✅ | `docs/api/openapi-v1.json`, versión `0.9.0b1` |
 

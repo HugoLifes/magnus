@@ -90,6 +90,34 @@ El compose usa la oficial con la versión fijada. Ojo si se reemplaza la de dust
 la oficial ya tiene `ollama` como ENTRYPOINT, así que `command: ["ollama", "serve"]`
 la rompería (quedaría `ollama ollama serve`).
 
+### 6. Cambiar de modelo: liberar antes de medir, y esperar
+
+En el Orin Nano cabe un modelo a la vez, y el RAG alterna entre el de embeddings y el de
+chat. La prueba e2e encontró tres falsos rechazos que los tests no veían:
+
+- La guarda contaba la memoria del modelo que Ollama iba a expulsar (1.5 GiB libres
+  cuando, liberando el de chat, había ~2.4). Magnus libera primero lo que sobra.
+- `keep_alive=0` responde al instante pero el proceso tarda en salir: releer la memoria
+  justo después daba el mismo valor. Se espera a que el modelo desaparezca de `/api/ps`.
+- Pedir un modelo ya cargado lo rechazaba contando su propia memoria.
+
+Con los arreglos, 4 vueltas seguidas embeddings ↔ chat tardan 3.9–6.3 s cada una.
+
+### 7. Agentes: desde ~1.7 B
+
+| modelo | ¿usó la calculadora? | respuesta a 1250 × 1.16 + 80 |
+|---|---|---|
+| qwen3:0.6b | a veces; con la expresión equivocada | 280 o 1890.22 |
+| qwen3:1.7b | sí, `(1250*1.16)+80` | **1530** (20 s) |
+
+## Prueba de extremo a extremo
+
+```bash
+docker exec nim_magnus python scripts/e2e.py --modelo qwen3:0.6b --agente-modelo qwen3:1.7b
+```
+
+Resultado en el Orin Nano (con el aforo y el escritorio corriendo): **19 ok, 0 fallos, 67 s**.
+
 ## Modelos que caben (Orin Nano 8 GB)
 
 Consulta en vivo: `magnus catalog` o `GET /catalog`. Con el escritorio y otro contenedor
