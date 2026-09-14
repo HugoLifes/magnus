@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Magnus">
+  <!-- Monograma: una M formada por barras de nivel (lectura de VRAM/tokens).
+       La barra central en ámbar es el ahorro. Usar sobre fondo oscuro o claro:
+       las barras exteriores toman el violeta del tema. -->
+  <rect x="4"  y="8"  width="8" height="48" rx="2" fill="#7C6CF6"/>
+  <rect x="16" y="22" width="8" height="34" rx="2" fill="#7C6CF6"/>
+  <rect x="28" y="36" width="8" height="20" rx="2" fill="#F2B441"/>
+  <rect x="40" y="22" width="8" height="34" rx="2" fill="#7C6CF6"/>
+  <rect x="52" y="8"  width="8" height="48" rx="2" fill="#7C6CF6"/>
+</svg>
