@@ -12,6 +12,8 @@ dependencies = [
     "httpx>=0.27",
     # Encabezados de las skills y definiciones de agentes.
     "pyyaml>=6.0",
+    # Claves de proveedores en el llavero del sistema (con respaldo en archivo).
+    "keyring>=25",
 ]
 
 [project.optional-dependencies]
@@ -28,7 +30,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["core", "daemon", "cli"]
+packages = ["core", "daemon", "cli", "cloud"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

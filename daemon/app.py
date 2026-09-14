@@ -8,6 +8,7 @@ Contrato único para la CLI y los clientes Flutter:
 - Chat + medidor: WebSocket /chat, POST /chat, /conversations, /usage
 - Skills: /skills
 - Documentos y memoria: /rag/*, /memory
+- Proveedores externos (vLLM en la red, APIs con clave del usuario): /providers
 - Ajustes: /settings
 
 El runtime de agentes se añade encima de ESTA misma app, sin romper el contrato.
@@ -54,6 +55,7 @@ from core.chat import ChatError, ChatService, OllamaChatClient
 from core.config import Settings, data_dir, load_settings, save_settings
 from core.model_registry import MODEL_REGISTRY
 from core.platform import detect_platform
+from core.providers import PRESETS, Provider, ProviderError, ProviderKind, ProviderRegistry
 from core.rag import (
     DEFAULT_CHUNK_CHARS,
     DEFAULT_EMBEDDING_MODEL,
@@ -62,6 +64,7 @@ from core.rag import (
     RagError,
     RagStore,
 )
+from core.secrets import SecretStore
 from core.security import PUBLIC_PATHS, token_ok
 from core.skills import BUILTIN_SKILLS_DIR, SkillError, SkillRegistry, build_skill
 from core.store import Store
@@ -121,6 +124,11 @@ def get_rag_store() -> RagStore:
 
 
 @lru_cache(maxsize=1)
+def get_provider_registry() -> ProviderRegistry:
+    return ProviderRegistry(data_dir(), SecretStore(data_dir()))
+
+
+@lru_cache(maxsize=1)
 def get_chat_service() -> ChatService:
     settings = get_settings()
     return ChatService(
@@ -132,6 +140,7 @@ def get_chat_service() -> ChatService:
         ensure_loaded=get_runtime_manager().ensure_loaded,
         skills=get_skill_registry(),
         rag=get_rag_store(),
+        remote=get_provider_registry().client,
     )
 
 
@@ -162,6 +171,7 @@ SkillsDep = Annotated[SkillRegistry, Depends(get_skill_registry)]
 RagDep = Annotated[RagStore, Depends(get_rag_store)]
 AgentsDep = Annotated[AgentRegistry, Depends(get_agent_registry)]
 RunnerDep = Annotated[AgentRunner, Depends(get_agent_runner)]
+ProvidersDep = Annotated[ProviderRegistry, Depends(get_provider_registry)]
 
 
 # ---------------------------------------------------------------------------
@@ -447,6 +457,9 @@ class ChatRequest(BaseModel):
     rag_k: int = 4
     # Razonamiento en modelos que razonan (qwen3, deepseek-r1). None: el del modelo.
     think: bool | None = None
+    # Dónde correr el turno: None o "local" = este equipo; si no, el id de un
+    # proveedor de /providers. Nunca se elige solo.
+    provider: str | None = None
 
 
 def _stream_chat(service: ChatService, req: ChatRequest) -> Iterator[dict]:
@@ -454,6 +467,7 @@ def _stream_chat(service: ChatService, req: ChatRequest) -> Iterator[dict]:
         model=req.model, message=req.message, conversation_id=req.conversation_id,
         system=req.system, options=req.options, collection=req.collection,
         use_memory=req.use_memory, rag_k=req.rag_k, think=req.think,
+        provider=req.provider,
     )
 
 
@@ -716,6 +730,92 @@ def memory_delete(memory_id: int, store: RagDep) -> dict:
 def memory_search(req: MemorySearchRequest, store: RagDep) -> dict:
     hits = _rag_call(lambda: store.search_memories(req.query, req.k))
     return {"memories": [m.to_dict() for m in hits]}
+
+
+# ---------------------------------------------------------------------------
+# Proveedores externos
+# ---------------------------------------------------------------------------
+
+
+class ProviderBody(BaseModel):
+    kind: str
+    name: str | None = None
+    base_url: str | None = None
+    # Solo de ida: nunca se devuelve. Omitirla al editar conserva la guardada.
+    api_key: str | None = None
+    enabled: bool = True
+    default_model: str | None = None
+    input_usd_per_mtok: float | None = None
+    output_usd_per_mtok: float | None = None
+
+
+@api.get("/providers")
+def providers_list(registry: ProvidersDep) -> dict:
+    """Tipos de proveedor disponibles (con sus avisos) y los que configuró el usuario."""
+    return {
+        "presets": [p.to_dict() for p in PRESETS.values()],
+        "providers": [p.to_dict(registry.has_key(p.id)) for p in registry.list()],
+    }
+
+
+@api.put("/providers/{provider_id}")
+def provider_put(provider_id: str, req: ProviderBody, registry: ProvidersDep) -> dict:
+    """Crea o actualiza un proveedor. La clave va al llavero del sistema."""
+    try:
+        kind = ProviderKind(req.kind)
+    except ValueError as exc:
+        known = ", ".join(k.value for k in ProviderKind)
+        raise HTTPException(status_code=400,
+                            detail=f"Tipo de proveedor desconocido: {req.kind!r}. "
+                                   f"Opciones: {known}") from exc
+    preset = PRESETS[kind]
+    existing = registry.get(provider_id)
+    provider = Provider(
+        id=provider_id,
+        kind=kind,
+        name=req.name or (existing.name if existing else preset.label),
+        base_url=req.base_url or (existing.base_url if existing else preset.base_url),
+        enabled=req.enabled,
+        default_model=req.default_model,
+        input_usd_per_mtok=req.input_usd_per_mtok,
+        output_usd_per_mtok=req.output_usd_per_mtok,
+    )
+    try:
+        saved = registry.save(provider, req.api_key)
+    except ProviderError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    get_chat_service.cache_clear()
+    return saved.to_dict(registry.has_key(provider_id))
+
+
+@api.delete("/providers/{provider_id}")
+def provider_delete(provider_id: str, registry: ProvidersDep) -> dict:
+    if not registry.delete(provider_id):
+        raise HTTPException(status_code=404, detail=f"No existe el proveedor '{provider_id}'.")
+    get_chat_service.cache_clear()
+    return {"deleted": provider_id}
+
+
+@api.get("/providers/{provider_id}/models")
+def provider_models(provider_id: str, registry: ProvidersDep) -> dict:
+    """Modelos que ofrece el proveedor (consulta su /v1/models)."""
+    try:
+        client, _ = registry.client(provider_id)
+        return {"models": client.list_models()}
+    except ProviderError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@api.post("/providers/{provider_id}/test")
+def provider_test(provider_id: str, registry: ProvidersDep) -> dict:
+    """Prueba la conexión y la clave sin gastar tokens: solo lista modelos."""
+    try:
+        client, provider = registry.client(provider_id)
+        models = client.list_models()
+    except ProviderError as exc:
+        return {"ok": False, "detail": str(exc)}
+    return {"ok": True, "location": provider.location, "models": len(models),
+            "sample": models[:8]}
 
 
 # ---------------------------------------------------------------------------

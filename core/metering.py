@@ -144,6 +144,12 @@ class TurnMetrics:
     cloud_cost_usd: float
     savings_usd: float
     price_table_version: str = PRICE_TABLE_VERSION
+    # Dónde corrió el turno. "local": este equipo (Ollama). Si no, el id del
+    # proveedor configurado y si está en la red del usuario ("lan") o fuera ("cloud").
+    provider: str = "local"
+    location: str = "local"
+    # Lo que cobró el proveedor remoto por este turno. None: gratis o desconocido.
+    provider_cost_usd: float | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -162,14 +168,24 @@ def meter_turn(
     avg_power_w: float | None = None,
     electricity_usd_per_kwh: float = 0.15,
     amortization_per_hour_usd: float = 0.0,
+    provider: str = "local",
+    location: str = "local",
+    provider_cost_usd: float | None = None,
 ) -> TurnMetrics:
-    """Mide un turno. Sin sensor de potencia la energía queda en None y cuesta 0."""
+    """Mide un turno. Sin sensor de potencia la energía queda en None y cuesta 0.
+
+    En un turno remoto este equipo no gastó energía ni hardware en generar:
+    el coste local es 0 y el ahorro se calcula contra lo que cobró el proveedor.
+    El consumo de un servidor vLLM propio en la red no se ve desde aquí.
+    """
+    remote = location != "local"
     gen = generation_s if generation_s else duration_s
     tps = round(tokens_out / gen, 1) if gen > 0 and tokens_out else None
-    energy_cost = (energy_wh or 0.0) / 1000 * electricity_usd_per_kwh
-    amortization = amortization_per_hour_usd * duration_s / 3600
+    energy_cost = 0.0 if remote else (energy_wh or 0.0) / 1000 * electricity_usd_per_kwh
+    amortization = 0.0 if remote else amortization_per_hour_usd * duration_s / 3600
     local = energy_cost + amortization
     cloud = cloud_cost_usd(reference, tokens_in, tokens_out)
+    spent = local + (provider_cost_usd or 0.0)
     return TurnMetrics(
         model=model,
         tokens_in=tokens_in,
@@ -184,7 +200,10 @@ def meter_turn(
         local_cost_usd=round(local, 8),
         cloud_reference=reference.id,
         cloud_cost_usd=round(cloud, 8),
-        savings_usd=round(cloud - local, 8),
+        savings_usd=round(cloud - spent, 8),
+        provider=provider,
+        location=location,
+        provider_cost_usd=round(provider_cost_usd, 8) if provider_cost_usd is not None else None,
     )
 
 

@@ -3,7 +3,8 @@
 `ChatService.stream()` es un generador de eventos que la CLI imprime y el
 daemon reenvía por WebSocket:
 
-    {"type": "start", "conversation_id", "model", "skills", "sources"}
+    {"type": "start", "conversation_id", "model", "skills", "sources",
+     "provider", "location"}
     {"type": "thinking", "content"}                    (modelos que razonan)
     {"type": "token", "content"}                       (muchos)
     {"type": "done",  "conversation_id", "message_id", "content", "metrics"}
@@ -13,6 +14,10 @@ y, si se pidió, se buscan fragmentos de una colección y hechos de la memoria;
 todo eso se suma al system prompt. Mientras el modelo genera, un `PowerMeter`
 muestrea la potencia del equipo; al cerrar, el turno se mide con los tokens que
 reporta el runtime y se guarda junto a la respuesta.
+
+Por omisión el turno corre en este equipo (Ollama). Con `provider` corre en un
+proveedor configurado (vLLM en la red, NVIDIA API con la clave del usuario,
+Magnus Cloud): ver `core/providers.py`. Nunca se elige solo.
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ import json
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
@@ -42,6 +48,8 @@ from core.store import Store, title_from
 # Similitud mínima para traer un hecho de la memoria: por debajo, lo que se
 # inyecta es ruido que el modelo pequeño tiende a mencionar sin venir al caso.
 _MEMORY_MIN_SCORE = 0.35
+
+LOCAL_PROVIDER = "local"
 
 
 @dataclass
@@ -154,6 +162,7 @@ class ChatService:
         ensure_loaded: Callable[[str], object] | None = None,
         skills: SkillRegistry | None = None,
         rag: RagStore | None = None,
+        remote: Callable[[str], tuple[Any, Any]] | None = None,
     ) -> None:
         self._store = store
         self._settings = settings
@@ -163,11 +172,13 @@ class ChatService:
         self._ensure_loaded = ensure_loaded
         self._skills = skills
         self._rag = rag
+        # id de proveedor → (cliente con stream_chat, Provider). Ver core/providers.py.
+        self._remote = remote
         # Buscar en la memoria calcula un embedding con otro modelo. Donde solo
         # cabe un modelo a la vez (Jetson, laptops de 4–8 GB) eso expulsaría al
         # de chat en cada turno; ahí la memoria se usa solo si se pide.
         self._memory_by_default = platform.max_loaded_models > 1
-        self._params_cache: dict[str, float | None] = {}
+        self._params_cache: dict[tuple[str, str], float | None] = {}
         hardware_cost = settings.hardware_cost_usd
         if hardware_cost is None:
             hardware_cost = (REFERENCE_HARDWARE_USD.get(platform.family.value, 1000.0)
@@ -176,10 +187,11 @@ class ChatService:
             hardware_cost, settings.hardware_lifetime_years, settings.hours_per_day
         )
 
-    def _params(self, model: str) -> float | None:
-        if model not in self._params_cache:
-            self._params_cache[model] = self._client.parameter_size_b(model)
-        return self._params_cache[model]
+    def _params(self, provider: str, client: Any, model: str) -> float | None:
+        key = (provider, model)
+        if key not in self._params_cache:
+            self._params_cache[key] = client.parameter_size_b(model)
+        return self._params_cache[key]
 
     def _retrieve(self, prompt: str, collection: str | None,
                   use_memory: bool | None, k: int) -> tuple[str | None, list[dict]]:
@@ -211,6 +223,7 @@ class ChatService:
         use_memory: bool | None = None,
         rag_k: int = 4,
         think: bool | None = None,
+        provider: str | None = None,
     ) -> Iterator[dict]:
         # Todo lo que puede fallar va antes de escribir en la base: un turno que
         # no llega al modelo no deja conversaciones vacías ni mensajes huérfanos.
@@ -222,6 +235,16 @@ class ChatService:
             if conv is None:
                 raise ChatError(f"Conversación no encontrada: {conversation_id}")
 
+        provider_id = provider or LOCAL_PROVIDER
+        remote = provider_id != LOCAL_PROVIDER
+        client: Any = self._client
+        remote_provider: Any = None
+        if remote:
+            if self._remote is None:
+                raise ChatError("Este servicio no tiene proveedores externos configurados.")
+            client, remote_provider = self._remote(provider_id)
+        location = remote_provider.location if remote_provider else LOCAL_PROVIDER
+
         active = self._skills.resolve(message) if self._skills else []
         # Al modelo le llega el mensaje sin el "/nombre"; en la conversación se
         # guarda tal como lo escribió el usuario.
@@ -229,7 +252,8 @@ class ChatService:
         # Los embeddings van antes de cargar el modelo de chat: si solo cabe un
         # modelo, calcularlos lo expulsa y así se recarga con la guarda.
         context, sources = self._retrieve(prompt, collection, use_memory, rag_k)
-        if self._ensure_loaded:
+        # Un proveedor remoto no ocupa memoria de este equipo: no hay nada que cargar.
+        if self._ensure_loaded and not remote:
             try:
                 self._ensure_loaded(model)
             except RuntimeManagerError as exc:
@@ -249,14 +273,17 @@ class ChatService:
         self._store.add_message(conv.id, "user", message)
 
         yield {"type": "start", "conversation_id": conv.id, "model": model,
-               "skills": [s.name for s in active], "sources": sources}
+               "skills": [s.name for s in active], "sources": sources,
+               "provider": provider_id, "location": location}
 
         parts: list[str] = []
         final: dict = {}
         ttft: float | None = None
         start = time.monotonic()
-        with PowerMeter(self._power_sampler, self._power_interval) as meter:
-            for chunk in self._client.stream_chat(model, history, options, think=think):
+        # Generar en otro equipo no consume la GPU de este: no se atribuye energía.
+        sampler = (lambda: None) if remote else self._power_sampler
+        with PowerMeter(sampler, self._power_interval) as meter:
+            for chunk in client.stream_chat(model, history, options, think=think):
                 # Modelos que razonan (qwen3, deepseek-r1, gpt-oss): Ollama manda el
                 # razonamiento aparte. No es respuesta ni cuenta para el primer
                 # token, pero el cliente puede mostrarlo mientras espera.
@@ -275,19 +302,26 @@ class ChatService:
 
         content = "".join(parts)
         eval_ns = final.get("eval_duration") or 0
+        # Lo que cuenta el tokenizer del modelo, según el runtime.
+        tokens_in = final.get("prompt_eval_count") or 0
+        tokens_out = final.get("eval_count") or 0
         metrics = meter_turn(
             model=model,
-            # Lo que cuenta el tokenizer del modelo, según el runtime.
-            tokens_in=final.get("prompt_eval_count") or 0,
-            tokens_out=final.get("eval_count") or 0,
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
             duration_s=duration,
             generation_s=eval_ns / 1e9 if eval_ns else None,
             ttft_s=ttft,
             energy_wh=meter.energy_wh,
             avg_power_w=meter.avg_power_w,
-            reference=pick_reference(self._params(model), self._settings.cloud_reference),
+            reference=pick_reference(self._params(provider_id, client, model),
+                                     self._settings.cloud_reference),
             electricity_usd_per_kwh=self._settings.electricity_usd_per_kwh,
             amortization_per_hour_usd=self._amortization,
+            provider=provider_id,
+            location=location,
+            provider_cost_usd=(remote_provider.cost_usd(tokens_in, tokens_out)
+                               if remote_provider else None),
         )
         saved = self._store.add_message(conv.id, "assistant", content, metrics.to_dict())
         yield {
