@@ -25,8 +25,9 @@ Cómo leer este informe:
 3. Lo que falta, y es la propuesta de valor: **ajuste al hardware antes de descargar,
    agentes con permisos y aprobaciones, y ahorro medido con vatios reales.**
 4. El chat local es gratis en todos los competidores: **no se puede cobrar por chatear.**
-5. Se cobra: agentes avanzados confiables (Pro), coordinación de personas (Team) y
-   despliegues on-prem (Enterprise). Al principio el dinero viene de servicios y Enterprise.
+5. Se cobra: **Conocimiento (RAG)** y agentes avanzados confiables (Pro), coordinación de
+   personas (Team) y despliegues on-prem (Enterprise). Al principio el dinero viene de
+   servicios y Enterprise. Decisión de Hugo (2026-09-18): el RAG es de pago (§14).
 6. La beta debe salir en **octubre de 2026**, cuando llegan las laptops RTX Spark (N1X).
 7. La seguridad es argumento de venta: OpenClaw acabó con decenas de miles de instancias
    expuestas y varios CVE.
@@ -247,7 +248,8 @@ Etapas: **Beta = oct-2026**, **v1 = ene-2027**, **v2 = mar-2027**.
 | Gestor de motores | Detecta Ollama y LM Studio, instala Ollama con permiso, muestra versión y salud | Manual | Beta |
 | Catálogo con ajuste | Distintivo de 4 estados, tok/s estimados, contexto que recalcula memoria | LM Studio (verde/rojo), calculadoras web | Beta |
 | Chat con medidor | Streaming; tokens, tok/s, W, costo local contra nube por respuesta | Nadie muestra el costo | Beta |
-| Conocimiento local | Arrastrar carpetas, índice y embeddings locales, citas con archivo y página | Open WebUI, Msty, AnythingLLM | Beta |
+| Conocimiento local (**Pro, de pago**) | Carpetas vivas, búsqueda híbrida con reranker, citas con archivo y página (§14) | Open WebUI, Msty, AnythingLLM (gratis) | Beta como prueba; cobro al lanzar Pro |
+| Magnus Code | Agente que lee y edita código y usa PowerShell o la terminal, con permisos (§15) | Claude Code, Codex CLI, OpenCode, Aider | v1 |
 | Servidor compatible | Endpoints OpenAI **y Anthropic** en localhost, claves por cliente (Claude Code, OpenClaw) | LM Studio 0.4, Ollama | Beta |
 | Aceleración automática | MTP/speculative decoding y NVFP4 en Blackwell cuando se mide que ayuda | Flags manuales | v1 |
 | Chat dividido | 2–3 modelos a la vez, solo si caben juntos | Msty, Cherry Studio | v1 |
@@ -408,8 +410,8 @@ agentes en los que se puede confiar y por coordinar personas.
 
 | Plan | Incluye | Precio (USD) |
 |---|---|---|
-| **Community** | Todo lo de la beta: catálogo con ajuste, chat con medidor, conocimiento local, servidor compatible, equipos en red con PAIR, chat dividido | $0, código abierto |
-| **Pro** | Agentes con permisos, programados y con MCP; móvil fuera de casa con relay cifrado de extremo a extremo; reportes de ahorro exportables; respaldo cifrado | $9/mes · $89/año · $219 de por vida |
+| **Community** | Catálogo con ajuste, chat con medidor, servidor compatible (motor para Claude Code y otros agentes), equipos en red con PAIR, chat dividido. **Sin RAG** | $0, código abierto |
+| **Pro** | **Conocimiento (RAG) local**; **Magnus Code** con modo autónomo en sandbox; agentes con permisos, programados y con MCP; móvil fuera de casa con relay cifrado; reportes de ahorro; respaldo cifrado | $9/mes · $89/año · $219 de por vida (revisar al alza: ver §14) |
 | **Team** | Multiusuario, roles, cuotas por persona, SSO, agentes compartidos, bitácora | $39 por equipo al mes, usuarios ilimitados |
 | **Enterprise** | Instalación sin conexión, flota de Jetson / DGX Spark / B200, cumplimiento LFPDPPP, soporte con SLA en español | desde $12,000/año |
 
@@ -615,6 +617,225 @@ el razonamiento en vLLM; por la API `/v1` de Ollama no se probó.
 
 ---
 
+## 14. Conocimiento (RAG): es de pago
+
+**Decisión de Hugo (2026-09-18):** el RAG no es gratis; no entra en Community.
+
+### Lo que existe hoy [Verificado en el código]
+
+- **Motor:** `core/rag.py` indexa PDF, texto y HTML en fragmentos de 1,000 caracteres
+  (150 de traslape), con embeddings de `nomic-embed-text` vía Ollama, guardados en SQLite.
+- **Búsqueda:** **solo por coseno**, sin búsqueda léxica ni reranker.
+- **Memoria:** hechos cortos del usuario.
+- **Dónde se usa:** `/rag/*` y `/memory`, la sección Documentos de la app y la herramienta
+  `buscar_documentos` de los agentes.
+- **Hoy todo es gratis y está en el repo.**
+
+### Consecuencia 1: la licencia decide si se puede cobrar [Propuesta]
+
+El repo **no tiene archivo LICENSE**. Sin licencia el código es «todos los derechos
+reservados», pero el plan dice «núcleo abierto». Si el RAG queda en código abierto, cualquiera
+lo usa sin pagar. Opciones:
+
+| Opción | Cómo | A favor | En contra |
+|---|---|---|---|
+| **A. Núcleo abierto** (recomendada) | Núcleo (daemon, chat, catálogo, medidor, proveedores) con Apache-2.0 en repo público. **Magnus Conocimiento** en repo privado, distribuido como paquete que el daemon carga con licencia válida | Mantiene la comunidad y protege lo que se cobra | Dos repos y una interfaz de plugins estable |
+| B. Todo cerrado, con edición gratuita | Un solo binario; las funciones de pago se desbloquean con licencia | Simple | Se pierde la comunidad y la confianza de «código abierto» |
+| C. Código visible con licencia de fuente disponible (BUSL o FSL) | Se ve todo; el uso comercial del RAG exige pagar; pasa a Apache a los 2 años | Transparencia | Espanta a parte de la comunidad; exige vigilar el cumplimiento |
+
+**Hay que decidir antes de publicar el repo o de sacar la beta.** Lo que ya está publicado bajo
+una licencia abierta no se puede cerrar hacia atrás.
+
+### Consecuencia 2: activar Pro sin cuenta obligatoria y sin internet [Propuesta]
+
+- **Licencia firmada:** un archivo de licencia firmado con Ed25519 (la clave pública va
+  dentro del daemon) que dice plan, vigencia y número de equipos. Se valida sin conexión, con
+  14 días de gracia si no puede renovarse.
+- **Se compra como los créditos:** un vale `MAG-…` o la pasarela, cuando exista.
+- **Sin licencia:** `/rag/*` responde **402** «Conocimiento es parte de Magnus Pro». La app
+  muestra qué gana el usuario y ofrece la prueba.
+- **Prueba de 14 días de Pro** para que el usuario vea la diferencia con sus propios
+  documentos (sugerencia; decide Hugo).
+- **Pregunta abierta:** ¿adjuntar UN archivo a una conversación, que se lee entero en el
+  contexto, sin índice y sin guardarse, cuenta como RAG? Si Hugo dice que no, eso puede
+  quedar gratis como gancho.
+
+### Qué tiene que ser el RAG para que valga pagarlo [Propuesta]
+
+Los competidores lo dan gratis (AnythingLLM, Open WebUI con búsqueda híbrida y reranker, Msty)
+[Publicado]. Para cobrar hay que ser claramente mejor en lo que duele:
+
+1. **Ingesta de verdad:** PDF escaneados con OCR, tablas, Word, Excel, PowerPoint y correos.
+   En equipos grandes, NVIDIA NeMo Retriever extrae PDF multimodales hasta 15 veces más rápido
+   [Publicado].
+2. **Búsqueda híbrida con reranker:** léxica (SQLite FTS5 / BM25) + vectores, fusionadas por
+   rangos (RRF), y un reranker sobre los 20–50 mejores para quedarse con 5–10 [Publicado].
+   El proyecto de aforo ya usa denso + léxico + RRF: hay experiencia en casa.
+3. **Carpetas vivas:** Magnus vigila las carpetas y reindexa lo que cambia; no hay que volver
+   a subir nada.
+4. **Citas verificables:** archivo, página y fragmento resaltado. Si no hay evidencia, la
+   respuesta es «no está en tus documentos». Se comprueba que cada cita sea de un fragmento que
+   de verdad se recuperó.
+5. **Buenos resultados en español:** embeddings multilingües elegidos según el equipo.
+6. **El medidor aplicado al RAG:** el usuario pone 20 preguntas con su respuesta esperada y
+   Magnus mide qué tan bien encuentra. Es coherente con la marca («el número antes que el
+   adjetivo») y ningún competidor lo muestra.
+7. **Conectores** (Team y Enterprise): OneDrive/SharePoint, Google Drive, Outlook y CFDI del
+   SAT, **con permisos por documento** (quién puede ver qué).
+
+### Cómo se reparte entre planes [Propuesta]
+
+| Plan | Conocimiento |
+|---|---|
+| Community | Sin RAG (quizá adjuntar un solo archivo, ver la pregunta abierta) |
+| **Pro** | Colecciones locales ilimitadas, carpetas vivas, híbrido + reranker, OCR, citas por página, evaluación |
+| **Team** | Colecciones compartidas con permisos, conectores de nube de oficina |
+| **Enterprise** | Conectores empresariales, auditoría, permisos por documento, NeMo Retriever en su servidor |
+| Magnus Cloud | Ingesta pesada (OCR, tablas) con créditos cuando el equipo es chico, siempre opcional y avisando que el documento sale del equipo |
+
+**Precio:** con el RAG y Magnus Code, $9 al mes se queda corto frente a lo que cobra el
+mercado por funciones de poder (Msty Aurum $149 al año [Publicado]). Hay que revisarlo:
+por ejemplo $12–15 al mes, o dejar $9 y crear Pro+.
+
+---
+
+## 15. Magnus Code: el agente que trabaja en tu código y tu terminal
+
+**Objetivo (Hugo):** que Magnus trabaje con código como Claude Code: que lea y edite el
+proyecto y ejecute comandos en PowerShell o en la terminal, **pidiendo permiso**. Con modelos
+locales, de la red o de Magnus Cloud.
+
+### Lo que existe hoy [Verificado en el código]
+
+- Los agentes (`core/agent.py`) solo tienen herramientas seguras: `calcular`, `fecha_hora`,
+  `buscar_documentos`, `recordar` y `buscar_memoria`.
+- **A propósito, ninguna ejecuta comandos ni lee archivos.**
+- Magnus Code necesita una capa nueva de permisos y ejecución. No es un agente YAML más.
+
+### Dos caminos que se suman [Propuesta]
+
+- **A. Ser el motor de los agentes que ya existen** (rápido, Community): endpoints compatibles
+  con Anthropic (`/v1/messages`) y con OpenAI, con una clave por cliente. Así Claude Code,
+  Codex CLI, OpenCode o Aider corren con los modelos de Magnus. Ya estaba en §9, punto 5.
+- **B. Agente propio, Magnus Code** (el diferenciador, parte en Pro): una CLI de terminal
+  (`magnus code`) y un panel en la app con terminal integrada, vista de cambios y tarjetas de
+  aprobación.
+
+### Herramientas del agente
+
+- Leer archivos, listar y buscar (glob y ripgrep).
+- **Editar con reemplazo exacto y vista del cambio**, y escribir archivos.
+- **Ejecutar comandos.**
+- Git: estado, diferencias y commit con permiso.
+- Web, apagada por defecto.
+- Servidores MCP del usuario.
+
+### La terminal
+
+- **Qué shell usa:** en Windows detecta PowerShell 7 (`pwsh`) y si no, Windows PowerShell 5.1;
+  en Linux, macOS y Jetson, bash o zsh; WSL como opción.
+- **Cómo corre cada comando:** con carpeta de trabajo fija en el proyecto, tiempo límite,
+  salida en vivo con tope y botón de cancelar que mata también los procesos hijos (Job Object
+  en Windows).
+- **Variables de entorno:** sin claves ni secretos.
+
+### Permisos: el corazón de la función
+
+Se hace igual que Claude Code: se evalúa en orden **denegar → preguntar → permitir**, y una
+denegación de la empresa no se puede anular [Publicado].
+
+- **Modos:**
+  - **Preguntar** (por defecto): leer dentro del proyecto es libre; editar y ejecutar piden
+    permiso.
+  - **Aceptar ediciones:** edita libre dentro del proyecto; los comandos piden permiso.
+  - **Plan:** solo lee y propone.
+  - **Autónomo:** solo si hay sandbox activo.
+- **Reglas por herramienta y patrón**, por ejemplo: `Shell(git status)` permitir,
+  `Shell(npm test*)` permitir, `Edit(src/**)` preguntar, `Read(.env)` denegar.
+- **Nivel de riesgo de cada comando antes de pedir permiso:** lectura, escritura en el
+  proyecto, red, fuera del proyecto o destructivo (`Remove-Item -Recurse`, `rm -rf`,
+  `git push --force`, formatear discos, tocar el registro). **Lo destructivo siempre pregunta,
+  incluso en modo autónomo**, y algunas cosas quedan bloqueadas.
+- **Tarjeta de aprobación** (§8.5):
+  - Muestra el comando exacto, qué dice el modelo que hará, la carpeta y el riesgo.
+  - Opciones: permitir una vez, permitir siempre este comando en este proyecto, o rechazar.
+    Si rechaza, el motivo vuelve al modelo.
+- **Confianza por carpeta:** la primera vez que se abre un proyecto, Magnus pregunta «¿confías
+  en esta carpeta?», porque los archivos del repo pueden traer instrucciones escondidas.
+
+### Sandbox: la segunda puerta
+
+Los permisos deciden si algo corre; el sandbox decide qué puede tocar [Publicado].
+
+- **Linux y Jetson:** bubblewrap o Landlock.
+- **macOS:** Seatbelt.
+- **Windows** es lo más difícil. Codex CLI lo resolvió en marzo de 2026 con tokens
+  restringidos y permisos de archivos (ACL): sin escribir fuera de la carpeta del proyecto y
+  sin red sin aprobación [Publicado].
+- **Plan para Magnus:** en Windows no hay modo autónomo hasta tener sandbox. Mientras tanto,
+  comandos con permiso uno por uno, u opción de correrlos en WSL2 o en un contenedor con el
+  proyecto montado.
+
+### Deshacer
+
+Antes de cada edición se guarda un punto de control (copia o commit temporal). Hay un botón de
+«deshacer los cambios del agente», y la bitácora dice qué tocó cada paso.
+
+### Inyección de instrucciones
+
+- **Todo es dato, no orden:** el contenido de archivos, la salida de comandos y la web.
+  Nunca se ejecuta algo porque un archivo lo pida.
+- **Secretos:** `.env`, llaves SSH y credenciales de nube se deniegan por defecto. Se ocultan
+  en las salidas antes de enviarlas a un modelo remoto.
+- **Aviso claro** cuando el turno va a la nube: **tu código sale del equipo**.
+
+### Modelos [Publicado]
+
+Programar con agentes exige buen uso de herramientas:
+
+| Modelo | Tamaño en q4 | Dato |
+|---|---|---|
+| Devstral Small 24B | 14 GB | 46.8 % en SWE-bench Verified |
+| Qwen3-Coder 30B-A3B | 19 GB | 256K de contexto |
+| gpt-oss-20b | cabe en 16 GB | |
+| Qwen3.6 27B | | |
+
+Por debajo de ~14B fallan. En el Jetson medimos que los modelos de menos de 3B ni siquiera usan
+las herramientas [Verificado]. Magnus recomienda el modelo según el equipo; si no alcanza,
+sugiere el servidor de la red o Magnus Cloud, avisando que el código sale.
+
+### Contexto del proyecto
+
+- **`MAGNUS.md`** en la raíz: instrucciones del proyecto, el equivalente de CLAUDE.md.
+  También lee `AGENTS.md` por compatibilidad.
+- **Memoria por proyecto.**
+- **Índice semántico del repositorio**, que es la unión con el RAG de pago (§14).
+
+### El medidor también aquí
+
+Por tarea: tokens, tiempo y costo. Por ejemplo: «esta tarea costó $0.00 en tu GPU; en la nube
+habría costado $X».
+
+### Cobro [Propuesta, decide Hugo]
+
+| Plan | Incluye |
+|---|---|
+| Community | Camino A (Magnus como motor de Claude Code y otros) y `magnus code` en modo Preguntar con modelos locales. Atrae desarrolladores; OpenCode y Aider son gratis |
+| **Pro** | Modo autónomo con sandbox, puntos de control ilimitados, índice semántico del repo (RAG), tareas en segundo plano o programadas y subagentes |
+| **Team** | Reglas de permisos compartidas por la empresa (denegaciones que nadie anula) y bitácora de auditoría |
+
+### Riesgos y etapas
+
+- **Riesgos:** la seguridad es el mayor riesgo del producto; el sandbox de Windows; los modelos
+  locales chicos que fallan en tareas largas; el costo de soporte.
+- **Etapas:**
+  1. **Beta:** camino A.
+  2. **v1 (ene 2027):** Magnus Code alfa con modos Preguntar y Plan, en todas las plataformas.
+     Modo autónomo solo en Linux y Jetson con sandbox.
+  3. **v2:** sandbox en Windows y extensión para VS Code.
+
+---
+
 ## 12. Fuentes
 
 Mercado y competencia:
@@ -658,6 +879,18 @@ Respaldo en la nube:
 - Groq, capa gratuita — https://tokenmix.ai/blog/groq-free-tier-limits-2026
 - OpenRouter, modelos gratuitos — https://klymentiev.com/blog/openrouter-free-tier
 - NVIDIA Inception — https://www.thundercompute.com/blog/nvidia-inception-program-guide
+
+RAG y agentes de código:
+- Permisos y sandbox de Claude Code — https://www.claudedirectory.org/blog/claude-code-permissions-guide
+- Guía de sandbox de Claude Code — https://claudefa.st/blog/guide/sandboxing-guide
+- Aprobaciones y seguridad de Codex — https://developers.openai.com/codex/agent-approvals-security
+- Sandbox de Codex en Windows — https://developers.openai.com/codex/windows
+- Modelos locales para programar — https://www.morphllm.com/best-ollama-models
+- Modelos de código por VRAM — https://insiderllm.com/guides/best-local-coding-models-2026/
+- RAG híbrido y reranking 2026 — https://aboullaite.me/rag-revisited-2026/
+- Reranking — https://redis.io/blog/top-reranking-models-rag-accuracy/
+- NeMo Retriever — https://developer.nvidia.com/blog/nvidia-nemo-retriever-delivers-accurate-multimodal-pdf-data-extraction-15x-faster/
+- Open WebUI frente a AnythingLLM — https://wz-it.com/en/blog/open-webui-vs-anythingllm-comparison/
 
 Seguridad y diseño:
 - CrowdStrike sobre OpenClaw — https://www.crowdstrike.com/en-us/blog/what-security-teams-need-to-know-about-openclaw-ai-super-agent/
