@@ -38,12 +38,13 @@ dependencies:
   fl_chart: ^0.69.0           # gráficas para el dashboard de tokens/coste
   data_table_2: ^2.5.15       # tablas con scroll/orden para modelos y cuantizaciones
   google_fonts: ^6.2.1        # tipografía
-  lucide_icons_flutter: ^3.1.14  # set de iconos fino y consistente (compatible Flutter 3.44)
   toastification: ^2.3.0      # notificaciones/toasts no intrusivos
 
   # --- Persistencia ligera ---
   shared_preferences: ^2.3.2  # recordar diseño elegido y URL del daemon
   dynamic_color: ^1.8.1
+  fluentui_system_icons: ^1.1.273  # iconos del tema Windows (Fluent)
+  cupertino_icons: ^1.0.9         # iconos del tema Apple (SF/Cupertino)
 
 dev_dependencies:
   flutter_lints: ^4.0.0

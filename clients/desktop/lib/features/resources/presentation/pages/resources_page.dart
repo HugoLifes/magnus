@@ -3,7 +3,7 @@ import 'dart:io' show Platform;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../core/theme/icons.dart';
 
 import '../../../../core/di/injector.dart';
 import '../../../../core/network/api_models.dart';
@@ -42,7 +42,8 @@ class _ResourcesView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SectionHeader(
-                icon: LucideIcons.heartPulse,
+                icon: context.icons.resources,
+                eyebrow: 'En vivo',
                 title: 'Recursos y salud',
                 subtitle: 'Telemetría en vivo del equipo que ejecuta los modelos.',
                 trailing: state.health == null
@@ -52,7 +53,7 @@ class _ResourcesView extends StatelessWidget {
                             ? 'Ollama ${state.health!.ollamaVersion ?? ''}'
                             : 'Ollama no responde',
                         color: state.health!.ollama ? t.ok : t.bad,
-                        icon: LucideIcons.plug,
+                        icon: context.icons.disconnected,
                       ),
               ),
               if (state.error != null) ...[
@@ -64,15 +65,14 @@ class _ResourcesView extends StatelessWidget {
               if (sample == null)
                 GlassCard(child: Text('Leyendo sensores…', style: t.small))
               else ...[
-                Wrap(
-                  spacing: 14,
-                  runSpacing: 14,
+                TileGrid(
+                  minTileWidth: 300,
                   children: [
                     for (final g in sample.gpus) _GpuCard(g),
                     _PowerCard(sample: sample, history: state.history),
                     if (sample.ramTotalGib != null)
                       _BarCard(
-                        icon: LucideIcons.memoryStick,
+                        icon: context.icons.memory,
                         title: 'Memoria del sistema',
                         sub: platform?.unifiedMemory == true
                             ? 'Compartida con la GPU'
@@ -92,7 +92,7 @@ class _ResourcesView extends StatelessWidget {
               const SizedBox(height: 22),
               Row(
                 children: [
-                  Icon(LucideIcons.laptop, size: 16, color: t.info),
+                  Icon(context.icons.laptop, size: 16, color: t.info),
                   const SizedBox(width: 8),
                   Text('Este equipo (cliente)', style: t.h2),
                 ],
@@ -103,9 +103,9 @@ class _ResourcesView extends StatelessWidget {
                   spacing: 22,
                   runSpacing: 14,
                   children: [
-                    _Spec(LucideIcons.monitor, 'Sistema', _osName()),
-                    _Spec(LucideIcons.cpu, 'CPU lógicas', '${Platform.numberOfProcessors} hilos'),
-                    _Spec(LucideIcons.server, 'Equipo', _host()),
+                    _Spec(context.icons.monitor, 'Sistema', _osName()),
+                    _Spec(context.icons.gpu, 'CPU lógicas', '${Platform.numberOfProcessors} hilos'),
+                    _Spec(context.icons.server, 'Equipo', _host()),
                   ],
                 ),
               ),
@@ -116,7 +116,7 @@ class _ResourcesView extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(LucideIcons.heart, size: 16, color: t.bad),
+                        Icon(context.icons.favorite, size: 16, color: t.bad),
                         const SizedBox(width: 8),
                         Text('Salud del hardware', style: t.h2),
                       ],
@@ -149,7 +149,7 @@ class _PlatformCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(LucideIcons.server, size: 16, color: t.accent),
+              Icon(context.icons.server, size: 16, color: t.accent),
               const SizedBox(width: 8),
               Expanded(child: Text(p.displayName.isEmpty ? 'Servidor' : p.displayName, style: t.h2)),
               Pill(p.familyLabel, color: t.accent),
@@ -160,11 +160,11 @@ class _PlatformCard extends StatelessWidget {
             spacing: 26,
             runSpacing: 12,
             children: [
-              _Spec(LucideIcons.database, 'Memoria',
+              _Spec(context.icons.database, 'Memoria',
                   '${p.totalMemoryGib.toStringAsFixed(1)} GiB${p.unifiedMemory ? ' unificada' : ''}'),
-              _Spec(LucideIcons.layers, 'Modelos a la vez', '${p.maxLoadedModels}'),
-              _Spec(LucideIcons.sparkles, 'Tamaño sugerido', 'hasta ~${p.suggestedMaxParamsB} B (q4)'),
-              _Spec(LucideIcons.wrench, 'Runtimes', p.runtimes.join(', ')),
+              _Spec(context.icons.layers, 'Modelos a la vez', '${p.maxLoadedModels}'),
+              _Spec(context.icons.sparkle, 'Tamaño sugerido', 'hasta ~${p.suggestedMaxParamsB} B (q4)'),
+              _Spec(context.icons.build, 'Runtimes', p.runtimes.join(', ')),
             ],
           ),
           for (final note in p.notes) ...[
@@ -187,43 +187,40 @@ class _GpuCard extends StatelessWidget {
     final util = (g.utilizationPct ?? 0) / 100;
     final memFrac = (g.memoryTotalGib ?? 0) > 0 ? (g.memoryUsedGib ?? 0) / g.memoryTotalGib! : 0.0;
     final temp = g.temperatureC;
-    return SizedBox(
-      width: 330,
-      child: GlassCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(LucideIcons.cpu, size: 16, color: t.accent),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(g.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: t.body.copyWith(fontWeight: FontWeight.w600)),
-                ),
-                if (temp != null)
-                  Pill('${temp.toStringAsFixed(0)} °C',
-                      color: temp > 85 ? t.bad : (temp > 70 ? t.warn : t.ok),
-                      icon: LucideIcons.thermometer),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _LabeledBar('Uso de GPU', formatNum(g.utilizationPct, decimals: 0, unit: ' %'), util, t.accent),
-            const SizedBox(height: 10),
-            _LabeledBar(
-              g.unifiedMemory ? 'Memoria (compartida)' : 'VRAM',
-              '${formatNum(g.memoryUsedGib)} / ${formatGib(g.memoryTotalGib)}',
-              memFrac,
-              memFrac > 0.85 ? t.bad : (memFrac > 0.6 ? t.warn : t.ok),
-            ),
-            if (g.powerW != null) ...[
-              const SizedBox(height: 10),
-              Text('${g.powerW!.toStringAsFixed(1)} W', style: t.small),
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(context.icons.gpu, size: 16, color: t.accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(g.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.body.copyWith(fontWeight: FontWeight.w600)),
+              ),
+              if (temp != null)
+                Pill('${temp.toStringAsFixed(0)} °C',
+                    color: temp > 85 ? t.bad : (temp > 70 ? t.warn : t.ok),
+                    icon: context.icons.temperature),
             ],
+          ),
+          const SizedBox(height: 14),
+          _LabeledBar('Uso de GPU', formatNum(g.utilizationPct, decimals: 0, unit: ' %'), util, t.accent),
+          const SizedBox(height: 10),
+          _LabeledBar(
+            g.unifiedMemory ? 'Memoria (compartida)' : 'VRAM',
+            '${formatNum(g.memoryUsedGib)} / ${formatGib(g.memoryTotalGib)}',
+            memFrac,
+            memFrac > 0.85 ? t.bad : (memFrac > 0.6 ? t.warn : t.ok),
+          ),
+          if (g.powerW != null) ...[
+            const SizedBox(height: 10),
+            Text('${g.powerW!.toStringAsFixed(1)} W', style: t.small),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -238,54 +235,51 @@ class _PowerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = MagnusTheme.of(context);
     final maxY = history.isEmpty ? 10.0 : (history.reduce((a, b) => a > b ? a : b) * 1.25);
-    return SizedBox(
-      width: 330,
-      child: GlassCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(LucideIcons.plug, size: 16, color: t.warn),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: Text(sample.boardPowerW != null ? 'Consumo de la placa' : 'Consumo de GPU',
-                        style: t.body.copyWith(fontWeight: FontWeight.w600))),
-                Text(formatNum(sample.powerW, unit: ' W'), style: t.h2),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text('Es lo que usa el medidor para el coste de energía.', style: t.small),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 70,
-              child: history.length < 2
-                  ? Center(child: Text('Midiendo…', style: t.small))
-                  : LineChart(
-                      LineChartData(
-                        minY: 0,
-                        maxY: maxY,
-                        titlesData: const FlTitlesData(show: false),
-                        gridData: const FlGridData(show: false),
-                        borderData: FlBorderData(show: false),
-                        lineTouchData: const LineTouchData(enabled: false),
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: [
-                              for (var i = 0; i < history.length; i++) FlSpot(i.toDouble(), history[i]),
-                            ],
-                            isCurved: true,
-                            color: t.warn,
-                            barWidth: 2,
-                            dotData: const FlDotData(show: false),
-                            belowBarData: BarAreaData(show: true, color: t.warn.withValues(alpha: 0.15)),
-                          ),
-                        ],
-                      ),
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(context.icons.disconnected, size: 16, color: t.warn),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: Text(sample.boardPowerW != null ? 'Consumo de la placa' : 'Consumo de GPU',
+                      style: t.body.copyWith(fontWeight: FontWeight.w600))),
+              Text(formatNum(sample.powerW, unit: ' W'), style: t.h2),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('Es lo que usa el medidor para el coste de energía.', style: t.small),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 70,
+            child: history.length < 2
+                ? Center(child: Text('Midiendo…', style: t.small))
+                : LineChart(
+                    LineChartData(
+                      minY: 0,
+                      maxY: maxY,
+                      titlesData: const FlTitlesData(show: false),
+                      gridData: const FlGridData(show: false),
+                      borderData: FlBorderData(show: false),
+                      lineTouchData: const LineTouchData(enabled: false),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: [
+                            for (var i = 0; i < history.length; i++) FlSpot(i.toDouble(), history[i]),
+                          ],
+                          isCurved: true,
+                          color: t.warn,
+                          barWidth: 2,
+                          dotData: const FlDotData(show: false),
+                          belowBarData: BarAreaData(show: true, color: t.warn.withValues(alpha: 0.15)),
+                        ),
+                      ],
                     ),
-            ),
-          ],
-        ),
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -310,28 +304,25 @@ class _BarCard extends StatelessWidget {
     final t = MagnusTheme.of(context);
     final frac = total > 0 ? (used / total).clamp(0.0, 1.0) : 0.0;
     final color = frac > 0.85 ? t.bad : (frac > 0.6 ? t.warn : t.ok);
-    return SizedBox(
-      width: 330,
-      child: GlassCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 16, color: t.info),
-                const SizedBox(width: 8),
-                Expanded(child: Text(title, style: t.body.copyWith(fontWeight: FontWeight.w600))),
-                Pill('${(frac * 100).toStringAsFixed(0)}%', color: color),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(sub, style: t.small),
-            const SizedBox(height: 14),
-            UsageBar(fraction: frac, color: color),
-            const SizedBox(height: 8),
-            Text('${used.toStringAsFixed(1)} / ${total.toStringAsFixed(1)} GiB', style: t.small),
-          ],
-        ),
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: t.info),
+              const SizedBox(width: 8),
+              Expanded(child: Text(title, style: t.body.copyWith(fontWeight: FontWeight.w600))),
+              Pill('${(frac * 100).toStringAsFixed(0)}%', color: color),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(sub, style: t.small),
+          const SizedBox(height: 14),
+          UsageBar(fraction: frac, color: color),
+          const SizedBox(height: 8),
+          Text('${used.toStringAsFixed(1)} / ${total.toStringAsFixed(1)} GiB', style: t.small),
+        ],
       ),
     );
   }
@@ -377,7 +368,7 @@ class _Tip extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Icon(LucideIcons.circleCheck, size: 14, color: t.ok),
+            child: Icon(context.icons.success, size: 14, color: t.ok),
           ),
           const SizedBox(width: 10),
           Expanded(child: Text(text, style: t.body)),

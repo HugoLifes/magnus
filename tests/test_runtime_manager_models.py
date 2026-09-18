@@ -201,10 +201,29 @@ def test_error_de_ollama_viejo_es_accionable():
 
 def test_version_de_ollama(monkeypatch):
     mgr, _, _ = _mgr(monkeypatch, [], [])
-    monkeypatch.setattr(mgr._ollama, "_get", lambda path: {"version": "0.6.5"})
+    monkeypatch.setattr(mgr._ollama, "_probe", lambda path: {"version": "0.6.5"})
     assert mgr.ollama_version() == "0.6.5"
-    monkeypatch.setattr(mgr._ollama, "is_available", lambda: False)
+    monkeypatch.setattr(mgr._ollama, "_probe", lambda path: None)
     assert mgr.ollama_version() is None
+
+
+def test_sondeo_de_ollama_es_corto_y_no_lanza(monkeypatch):
+    """Sin Ollama, /health no debe esperar el reintento de conexión de Windows (~2 s)."""
+    import httpx
+
+    from core.runtime_manager import OllamaClient
+
+    vistos = []
+
+    def falla(url, timeout):
+        vistos.append(timeout)
+        raise httpx.ConnectError("rechazada")
+
+    monkeypatch.setattr(httpx, "get", falla)
+    cliente = OllamaClient()
+    assert cliente.version() is None
+    assert cliente.is_available() is False
+    assert all(t.connect is not None and t.connect <= 1.0 for t in vistos)
 
 
 def test_modelos_locales_con_detalles(monkeypatch):

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart'
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../core/theme/icons.dart';
 
 import '../../../../core/constants.dart';
 import '../../../../core/theme/design_system.dart';
@@ -45,10 +45,11 @@ class _SettingsPageState extends State<SettingsPage> {
         child: BlocBuilder<SettingsCubit, SettingsState>(
           builder: (context, state) {
             return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SectionHeader(
-                  icon: LucideIcons.settings,
+                SectionHeader(
+                  icon: context.icons.settings,
+                  eyebrow: 'Preferencias',
                   title: 'Ajustes',
                   subtitle: 'Diseño, apariencia y conexión al daemon.',
                 ),
@@ -115,8 +116,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                     children: [
                                       Icon(
                                           a == Appearance.dark
-                                              ? LucideIcons.moon
-                                              : LucideIcons.sun,
+                                              ? context.icons.dark
+                                              : context.icons.light,
                                           size: 16,
                                           color: state.appearance == a
                                               ? t.accent
@@ -262,7 +263,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           const SizedBox(width: 12),
                           MagnusButton(
                             label: 'Guardar',
-                            icon: LucideIcons.check,
+                            icon: context.icons.check,
                             onTap: () => context
                                 .read<SettingsCubit>()
                                 .setDaemonUrl(_urlCtrl.text),
@@ -313,9 +314,9 @@ class _DesignOption extends StatelessWidget {
           children: [
             Icon(
               switch (design) {
-                DesignSystem.windows => LucideIcons.monitor,
-                DesignSystem.material => LucideIcons.smartphone,
-                DesignSystem.apple => LucideIcons.laptop,
+                DesignSystem.windows => context.icons.monitor,
+                DesignSystem.material => context.icons.phone,
+                DesignSystem.apple => context.icons.laptop,
               },
               size: 20,
               color: selected ? t.accent : t.textMuted,

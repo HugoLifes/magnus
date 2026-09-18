@@ -100,6 +100,12 @@ def _no_ollama(base_url: str) -> str:
             "¿Está arrancado? Ejecuta: ollama serve")
 
 
+# Sondeos de «¿está Ollama?»: conexión corta. En Windows un puerto cerrado tarda
+# ~2 s en rechazar cada intento, y /health (que la app consulta al abrir) no
+# puede esperar eso varias veces.
+_PROBE_TIMEOUT = httpx.Timeout(3.0, connect=1.0)
+
+
 class OllamaClient:
     """Cliente HTTP mínimo para la API local de Ollama (por defecto :11434)."""
 
@@ -135,19 +141,22 @@ class OllamaClient:
         except httpx.HTTPStatusError as exc:
             raise RuntimeManagerError(f"Ollama respondió {exc.response.status_code}: {exc.response.text}") from exc
 
-    def is_available(self) -> bool:
+    def _probe(self, path: str) -> dict | None:
+        """GET corto que nunca lanza: el JSON de la respuesta, o None si no hay Ollama."""
         try:
-            httpx.get(f"{self.base_url}/", timeout=3)
-            return True
-        except (httpx.ConnectError, httpx.TimeoutException):
-            return False
+            r = httpx.get(f"{self.base_url}{path}", timeout=_PROBE_TIMEOUT)
+            r.raise_for_status()
+            return r.json()
+        except (httpx.HTTPError, ValueError):
+            return None
+
+    def is_available(self) -> bool:
+        return self.version() is not None
 
     def version(self) -> str | None:
         """Versión de Ollama, o None si no responde."""
-        try:
-            return self._get("/api/version").get("version")
-        except RuntimeManagerError:
-            return None
+        data = self._probe("/api/version")
+        return data.get("version") if isinstance(data, dict) else None
 
     def list_local(self) -> list[dict]:
         """Modelos disponibles localmente (en disco)."""
@@ -421,7 +430,8 @@ class RuntimeManager:
         return self._ollama.is_available()
 
     def ollama_version(self) -> str | None:
-        return self._ollama.version() if self._ollama.is_available() else None
+        """Versión de Ollama, o None si no responde (un solo sondeo corto)."""
+        return self._ollama.version()
 
     # ------------------------------------------------------------------
     # Helpers internos

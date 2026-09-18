@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart'
     show Material, Colors, TextField, InputDecoration, OutlineInputBorder, Slider, Switch;
 import 'package:flutter/widgets.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../core/theme/icons.dart';
 
 import '../../core/theme/magnus_theme.dart';
 
@@ -211,9 +211,9 @@ class InlineNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = MagnusTheme.of(context);
     final (color, icon) = switch (kind) {
-      NoticeKind.error => (t.bad, LucideIcons.circleAlert),
-      NoticeKind.warning => (t.warn, LucideIcons.circleAlert),
-      NoticeKind.info => (t.info, LucideIcons.info),
+      NoticeKind.error => (t.bad, context.icons.warning),
+      NoticeKind.warning => (t.warn, context.icons.warning),
+      NoticeKind.info => (t.info, context.icons.info),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -234,7 +234,7 @@ class InlineNotice extends StatelessWidget {
           if (onClose != null)
             GestureDetector(
               onTap: onClose,
-              child: Icon(LucideIcons.x, size: 14, color: t.textFaint),
+              child: Icon(context.icons.close, size: 14, color: t.textFaint),
             ),
         ],
       ),

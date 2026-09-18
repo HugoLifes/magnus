@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../core/theme/icons.dart';
 
 import '../../core/theme/brand.dart';
 import '../../core/theme/magnus_theme.dart';
@@ -648,9 +648,9 @@ class LocationChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = Brand.location(location);
     final (icon, text) = switch (location) {
-      'local' => (LucideIcons.cpu, 'Este equipo'),
-      'lan' => (LucideIcons.network, providerName ?? 'Tu red'),
-      _ => (LucideIcons.cloud, providerName == null ? 'Sale de tu equipo' : '$providerName · sale de tu equipo'),
+      'local' => (context.icons.gpu, 'Este equipo'),
+      'lan' => (context.icons.network, providerName ?? 'Tu red'),
+      _ => (context.icons.cloud, providerName == null ? 'Sale de tu equipo' : '$providerName · sale de tu equipo'),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

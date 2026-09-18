@@ -9,9 +9,10 @@ dist/
 venv/
 env/
 
-# Magnus runtime data (modelos, memoria, vector store, logs)
-data/
-models/
+# Magnus runtime data (modelos, memoria, vector store, logs). Ancladas a la raíz:
+# sin la barra inicial también ignoraban clients/desktop/lib/features/models/.
+/data/
+/models/
 *.gguf
 *.safetensors
 magnus.db

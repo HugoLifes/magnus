@@ -2,7 +2,7 @@ import 'package:flutter/material.dart'
     show Material, Colors, TextField, InputDecoration, OutlineInputBorder, SelectableText;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../core/theme/icons.dart';
 
 import '../../../../core/network/api_models.dart';
 import '../../../../core/theme/brand.dart';
@@ -48,24 +48,27 @@ class _CloudPageState extends State<CloudPage> {
                 InlineNotice(state.notice!, kind: NoticeKind.info, onClose: cubit.dismiss),
               ],
               const SizedBox(height: 30),
-              const _SectionTitle(
-                icon: LucideIcons.sparkles,
+              _SectionTitle(
+                icon: context.icons.sparkle,
+                eyebrow: 'Créditos',
                 title: 'Magnus Cloud',
                 subtitle: 'Modelos abiertos en hardware NVIDIA propio. Pagas con créditos; '
                     'nada se guarda ni se usa para entrenar.',
               ),
               state.cloud == null ? const _CloudConnect() : _CloudWallet(state: state),
               const SizedBox(height: 34),
-              const _SectionTitle(
-                icon: LucideIcons.keyRound,
+              _SectionTitle(
+                icon: context.icons.key,
+                eyebrow: 'Tu cuenta',
                 title: 'Con tu propia clave',
                 subtitle: 'Tu cuenta, tus términos. Magnus solo enruta y guarda la clave en el '
                     'llavero del sistema.',
               ),
               _KeyProviders(state: state),
               const SizedBox(height: 34),
-              const _SectionTitle(
-                icon: LucideIcons.network,
+              _SectionTitle(
+                icon: context.icons.network,
+                eyebrow: 'Tu red',
                 title: 'Tus servidores',
                 subtitle: 'vLLM en otro equipo tuyo — un DGX Spark, una PC con RTX, un servidor. '
                     'Tus datos no salen de tu red.',
@@ -118,16 +121,16 @@ class _Hero extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              const Wrap(
+              Wrap(
                 spacing: 10,
                 runSpacing: 10,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  _Step(n: 1, label: 'Este equipo', icon: LucideIcons.cpu, color: Brand.teal),
-                  _Arrow(),
-                  _Step(n: 2, label: 'Tu red', icon: LucideIcons.network, color: Brand.sky),
-                  _Arrow(),
-                  _Step(n: 3, label: 'La nube', icon: LucideIcons.cloud, color: Brand.lilac),
+                  _Step(n: 1, label: 'Este equipo', icon: context.icons.gpu, color: Brand.teal),
+                  const _Arrow(),
+                  _Step(n: 2, label: 'Tu red', icon: context.icons.network, color: Brand.sky),
+                  const _Arrow(),
+                  _Step(n: 3, label: 'La nube', icon: context.icons.cloud, color: Brand.lilac),
                 ],
               ),
             ],
@@ -205,18 +208,24 @@ class _Arrow extends StatelessWidget {
   const _Arrow();
   @override
   Widget build(BuildContext context) =>
-      Icon(LucideIcons.chevronRight, size: 16, color: MagnusTheme.of(context).textFaint);
+      Icon(context.icons.chevronRight, size: 16, color: MagnusTheme.of(context).textFaint);
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.icon, required this.title, required this.subtitle});
+  const _SectionTitle({
+    required this.icon,
+    required this.eyebrow,
+    required this.title,
+    required this.subtitle,
+  });
   final IconData icon;
+  final String eyebrow;
   final String title;
   final String subtitle;
 
   @override
   Widget build(BuildContext context) =>
-      SectionHeader(title: title, subtitle: subtitle, icon: icon);
+      SubHeading(title, eyebrow: eyebrow, icon: icon, subtitle: subtitle);
 }
 
 // ---------------------------------------------------------------------------
@@ -270,7 +279,7 @@ class _CloudConnectState extends State<_CloudConnect> {
         const SizedBox(height: 16),
         GlowButton(
           label: 'Conectar Magnus Cloud',
-          icon: LucideIcons.plugZap,
+          icon: context.icons.connected,
           busy: state.busy == 'connect:magnus-cloud',
           onTap: () => context.read<CloudCubit>().connect('magnus-cloud',
               kind: 'magnus-cloud', baseUrl: _url.text.trim(), apiKey: _key.text.trim()),
@@ -309,7 +318,7 @@ class _CloudWalletState extends State<_CloudWallet> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(child: Text(account?.name ?? 'Tu saldo', style: t.h1)),
-          _IconAction(LucideIcons.refreshCw, 'Actualizar saldo', cubit.refreshAccount),
+          _IconAction(context.icons.refresh, 'Actualizar saldo', cubit.refreshAccount),
         ]),
         const SizedBox(height: 4),
         Text('+${account?.freeMonthlyCredits ?? 100} créditos gratis cada mes', style: t.small),
@@ -319,7 +328,7 @@ class _CloudWalletState extends State<_CloudWallet> {
         const SizedBox(height: 10),
         GlowButton(
           label: 'Canjear vale',
-          icon: LucideIcons.ticket,
+          icon: context.icons.voucher,
           variant: GlowVariant.savings,
           expand: true,
           busy: state.busy == 'redeem',
@@ -374,11 +383,11 @@ class _Movement extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = MagnusTheme.of(context);
     final (icon, label) = switch (m.kind) {
-      'grant' => (LucideIcons.gift, 'Bono mensual'),
-      'topup' => (LucideIcons.ticket, 'Vale ${m.meta['paquete'] ?? ''}'),
-      'debit' => (LucideIcons.messageCircle,
+      'grant' => (context.icons.gift, 'Bono mensual'),
+      'topup' => (context.icons.voucher, 'Vale ${m.meta['paquete'] ?? ''}'),
+      'debit' => (context.icons.chat,
           '${m.meta['modelo'] ?? 'Uso'} · ${m.meta['tokens_out'] ?? '?'} tok'),
-      _ => (LucideIcons.slidersHorizontal, 'Ajuste'),
+      _ => (context.icons.tune, 'Ajuste'),
     };
     final positive = m.credits >= 0;
     return Padding(
@@ -408,7 +417,7 @@ class _PackCard extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(child: Text(pack.name, style: t.h1.copyWith(fontSize: 21))),
-          if (pack.featured) Pill('Más elegido', color: t.accent, icon: LucideIcons.star),
+          if (pack.featured) Pill('Más elegido', color: t.accent, icon: context.icons.star),
         ]),
         const SizedBox(height: 4),
         Text(pack.tagline, style: t.small, maxLines: 2),
@@ -426,9 +435,9 @@ class _PackCard extends StatelessWidget {
           Text('≈ ${_millions(pack.approxTokens!)} tokens de ${pack.referenceModel}', style: t.small),
         const SizedBox(height: 10),
         if (pack.bonusPct > 0)
-          Pill('+${pack.bonusPct}% de regalo', color: Brand.amber, icon: LucideIcons.gift)
+          Pill('+${pack.bonusPct}% de regalo', color: Brand.amber, icon: context.icons.gift)
         else
-          Pill('Sin caducidad', color: t.textMuted, icon: LucideIcons.infinity),
+          Pill('Sin caducidad', color: t.textMuted, icon: context.icons.forever),
         const SizedBox(height: 16),
         GlowButton(
           label: 'Quiero ${pack.name}',
@@ -517,7 +526,7 @@ class _KeyProviderCardState extends State<_KeyProviderCard> {
         Row(children: [
           Expanded(child: Text(preset.label, style: t.h2.copyWith(fontSize: 16.5))),
           connected
-              ? const Pill('Conectado', color: Brand.teal, icon: LucideIcons.check)
+              ? Pill('Conectado', color: Brand.teal, icon: context.icons.check)
               : Pill('Sin conectar', color: t.textFaint),
         ]),
         const SizedBox(height: 6),
@@ -531,7 +540,7 @@ class _KeyProviderCardState extends State<_KeyProviderCard> {
         if (preset.keyUrl != null) ...[
           const SizedBox(height: 6),
           Row(children: [
-            Icon(LucideIcons.externalLink, size: 12, color: t.textFaint),
+            Icon(context.icons.openExternal, size: 12, color: t.textFaint),
             const SizedBox(width: 5),
             Flexible(
               child: Material(
@@ -554,7 +563,7 @@ class _KeyProviderCardState extends State<_KeyProviderCard> {
         Wrap(spacing: 8, runSpacing: 8, children: [
           GlowButton(
             label: connected ? 'Cambiar clave' : 'Conectar',
-            icon: LucideIcons.plugZap,
+            icon: context.icons.connected,
             dense: true,
             busy: busy == 'connect:$id',
             onTap: () {
@@ -565,7 +574,7 @@ class _KeyProviderCardState extends State<_KeyProviderCard> {
           if (info != null) ...[
             GlowButton(
               label: 'Probar',
-              icon: LucideIcons.activity,
+              icon: context.icons.activity,
               variant: GlowVariant.secondary,
               dense: true,
               busy: busy == 'test:$id',
@@ -573,7 +582,7 @@ class _KeyProviderCardState extends State<_KeyProviderCard> {
             ),
             GlowButton(
               label: 'Quitar',
-              icon: LucideIcons.trash2,
+              icon: context.icons.delete,
               variant: GlowVariant.secondary,
               dense: true,
               busy: busy == 'remove:$id',
@@ -644,7 +653,7 @@ class _ServersState extends State<_Servers> {
           const SizedBox(height: 14),
           GlowButton(
             label: 'Agregar y probar',
-            icon: LucideIcons.plus,
+            icon: context.icons.add,
             busy: state.busy == 'connect:$id',
             onTap: _name.text.trim().isEmpty && id.isEmpty
                 ? null
@@ -676,7 +685,7 @@ class _ServerRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       glow: Brand.location(server.location),
       child: Row(children: [
-        Icon(server.kind == 'vllm' ? LucideIcons.server : LucideIcons.plug, size: 18, color: t.textMuted),
+        Icon(server.kind == 'vllm' ? context.icons.server : context.icons.disconnected, size: 18, color: t.textMuted),
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -702,14 +711,14 @@ class _ServerRow extends StatelessWidget {
         const SizedBox(width: 10),
         GlowButton(
           label: 'Probar',
-          icon: LucideIcons.activity,
+          icon: context.icons.activity,
           variant: GlowVariant.secondary,
           dense: true,
           busy: state.busy == 'test:${server.id}',
           onTap: () => cubit.test(server.id),
         ),
         const SizedBox(width: 8),
-        _IconAction(LucideIcons.trash2, 'Quitar', () => cubit.remove(server.id)),
+        _IconAction(context.icons.delete, 'Quitar', () => cubit.remove(server.id)),
       ]),
     );
   }
@@ -753,7 +762,7 @@ class _Notice extends StatelessWidget {
         border: Border(left: BorderSide(color: color, width: 3)),
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(strong ? LucideIcons.shieldAlert : LucideIcons.cloud, size: 14, color: color),
+        Icon(strong ? context.icons.shield : context.icons.cloud, size: 14, color: color),
         const SizedBox(width: 8),
         Expanded(child: Text(text, style: t.small.copyWith(color: t.text, height: 1.4))),
       ]),
@@ -798,7 +807,7 @@ class _SecretFieldState extends State<_SecretField> {
           focusedBorder: border(t.accent),
           suffixIcon: GestureDetector(
             onTap: () => setState(() => _visible = !_visible),
-            child: Icon(_visible ? LucideIcons.eyeOff : LucideIcons.eye, size: 16, color: t.textFaint),
+            child: Icon(_visible ? context.icons.eyeOff : context.icons.eye, size: 16, color: t.textFaint),
           ),
         ),
       ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart'
     show Material, Colors, TextField, InputDecoration, OutlineInputBorder;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../core/theme/icons.dart';
 
 import '../../../../core/theme/magnus_theme.dart';
 import '../../../../shared/widgets/ui.dart';
@@ -72,7 +72,7 @@ class _DaemonTokenFieldState extends State<DaemonTokenField> {
             const SizedBox(width: 12),
             MagnusButton(
               label: 'Guardar token',
-              icon: LucideIcons.keyRound,
+              icon: context.icons.key,
               onTap: () {
                 cubit.setDaemonToken(_ctrl.text);
                 _ctrl.clear();

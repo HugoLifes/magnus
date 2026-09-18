@@ -7,7 +7,7 @@ import 'app.dart';
 import 'core/constants.dart';
 import 'core/di/injector.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Inyección de dependencias (DI) antes de arrancar la UI.
@@ -46,5 +46,5 @@ Future<void> main() async {
     systemAccent = null; // sin soporte: se usa el morado de Magnus
   }
 
-  runApp(MagnusApp(systemAccent: systemAccent));
+  runApp(MagnusApp(systemAccent: systemAccent, initialPage: startPageFrom(args)));
 }

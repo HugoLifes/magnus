@@ -1,4 +1,5 @@
-import 'package:fluent_ui/fluent_ui.dart';
+import 'package:fluent_ui/fluent_ui.dart' hide FluentIcons;
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart' show Material;
 import 'package:sidebarx/sidebarx.dart';
 
@@ -15,17 +16,20 @@ class WindowsShell extends StatefulWidget {
     required this.appearance,
     required this.font,
     this.accent,
+    this.initialPage = 0,
   });
   final Appearance appearance;
   final String font;
   final Color? accent;
+  final int initialPage;
 
   @override
   State<WindowsShell> createState() => _WindowsShellState();
 }
 
 class _WindowsShellState extends State<WindowsShell> {
-  final _controller = SidebarXController(selectedIndex: 0, extended: true);
+  late final _controller =
+      SidebarXController(selectedIndex: widget.initialPage, extended: true);
 
   @override
   void initState() {
@@ -43,7 +47,6 @@ class _WindowsShellState extends State<WindowsShell> {
   Widget build(BuildContext context) {
     final t = MagnusTheme.forDesign(DesignSystem.windows, widget.appearance.brightness,
         font: widget.font, accent: widget.accent);
-    final dark = t.isDark;
 
     return FluentApp(
       title: 'Magnus',
@@ -58,13 +61,15 @@ class _WindowsShellState extends State<WindowsShell> {
         scaffoldBackgroundColor: Colors.transparent,
         micaBackgroundColor: Colors.transparent,
       ),
-      home: DecoratedBox(
-        decoration: BoxDecoration(gradient: shellBackdrop(t)),
+      home: ShellBackdrop(
+        theme: t,
+        opaque: false,
         child: Material(
           color: const Color(0x00000000),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _Sidebar(controller: _controller, theme: t, dark: dark),
+              _Sidebar(controller: _controller, theme: t),
               Expanded(
                 child: themedPage(DesignSystem.windows, widget.appearance,
                     widget.font, widget.accent, _controller.selectedIndex),
@@ -77,11 +82,57 @@ class _WindowsShellState extends State<WindowsShell> {
   }
 }
 
+/// Panel de navegación al estilo `NavigationView` de WinUI 3: relleno suave al
+/// pasar el cursor, píldora de acento a la izquierda del elemento activo y
+/// Ajustes separado abajo, como en las apps de Windows 11.
 class _Sidebar extends StatelessWidget {
-  const _Sidebar({required this.controller, required this.theme, required this.dark});
+  const _Sidebar({required this.controller, required this.theme});
   final SidebarXController controller;
   final MagnusTheme theme;
-  final bool dark;
+
+  static const _settings = 7; // índice de Ajustes en magnusDestinations
+
+  SidebarXItem _item(NavDest d) => SidebarXItem(
+        label: d.label,
+        iconBuilder: (selected, hovered) => _NavIcon(
+          icon: d.iconFor(DesignSystem.windows),
+          selected: selected,
+          hovered: hovered,
+          theme: theme,
+        ),
+      );
+
+  SidebarXTheme _theme({required bool extended}) {
+    final t = theme;
+    final pad = EdgeInsets.symmetric(horizontal: extended ? 4 : 10, vertical: 9);
+    final margin = EdgeInsets.symmetric(horizontal: extended ? 8 : 6, vertical: 1.5);
+    return SidebarXTheme(
+      width: extended ? 232 : 64,
+      decoration: BoxDecoration(
+        color: t.isDark ? const Color(0x0AFFFFFF) : const Color(0x80FFFFFF),
+        border: Border(right: BorderSide(color: t.stroke)),
+      ),
+      margin: const EdgeInsets.only(bottom: 10),
+      itemPadding: pad,
+      selectedItemPadding: pad,
+      itemMargin: margin,
+      selectedItemMargin: margin,
+      itemTextPadding: const EdgeInsets.only(left: 12),
+      selectedItemTextPadding: const EdgeInsets.only(left: 12),
+      textStyle: TextStyle(color: t.textMuted, fontSize: 13.5, fontWeight: FontWeight.w500),
+      hoverTextStyle: TextStyle(color: t.text, fontSize: 13.5, fontWeight: FontWeight.w500),
+      selectedTextStyle:
+          TextStyle(color: t.text, fontSize: 13.5, fontWeight: FontWeight.w600),
+      iconTheme: IconThemeData(color: t.textMuted, size: 20),
+      selectedIconTheme: IconThemeData(color: t.accent, size: 20),
+      hoverColor: t.stateLayer(),
+      itemDecoration: BoxDecoration(borderRadius: BorderRadius.circular(t.radiusSm)),
+      selectedItemDecoration: BoxDecoration(
+        color: t.stateLayer(pressed: true),
+        borderRadius: BorderRadius.circular(t.radiusSm),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,48 +141,164 @@ class _Sidebar extends StatelessWidget {
       controller: controller,
       showToggleButton: true,
       headerBuilder: (context, extended) => ShellBrand(theme: t, extended: extended),
-      headerDivider: Container(height: 1, color: t.stroke),
-      extendedTheme: SidebarXTheme(
-        width: 224,
-        decoration: BoxDecoration(
-          color: dark ? const Color(0x14FFFFFF) : const Color(0x99FFFFFF),
-          border: Border(right: BorderSide(color: t.stroke)),
-        ),
-        itemPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        selectedItemPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        itemTextPadding: const EdgeInsets.only(left: 14),
-        selectedItemTextPadding: const EdgeInsets.only(left: 14),
-        textStyle: TextStyle(color: t.textMuted, fontSize: 13.5),
-        selectedTextStyle: TextStyle(color: t.text, fontSize: 13.5, fontWeight: FontWeight.w600),
-        iconTheme: IconThemeData(color: t.textMuted, size: 20),
-        selectedIconTheme: IconThemeData(color: t.accent, size: 20),
-        itemDecoration: const BoxDecoration(color: Colors.transparent),
-        selectedItemDecoration: BoxDecoration(
-          color: t.accentSoft,
-          borderRadius: BorderRadius.circular(t.radius),
-          border: Border.all(color: t.accent.withValues(alpha: 0.35)),
+      footerDivider: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        child: Container(height: 1, color: t.stroke),
+      ),
+      footerBuilder: (context, extended) => _FooterItem(
+        dest: magnusDestinations[_settings],
+        extended: extended,
+        selected: controller.selectedIndex == _settings,
+        theme: t,
+        onTap: () => controller.selectIndex(_settings),
+      ),
+      toggleButtonBuilder: (context, extended) => _CollapseButton(
+        extended: extended,
+        theme: t,
+        onTap: () => controller.setExtended(!extended),
+      ),
+      extendedTheme: _theme(extended: true),
+      theme: _theme(extended: false),
+      // Ajustes es el último destino: fuera de la lista, en el pie.
+      items: [for (final d in magnusDestinations.take(_settings)) _item(d)],
+    );
+  }
+}
+
+/// Elemento del pie (Ajustes) con el mismo aspecto que los de la lista.
+class _FooterItem extends StatefulWidget {
+  const _FooterItem({
+    required this.dest,
+    required this.extended,
+    required this.selected,
+    required this.theme,
+    required this.onTap,
+  });
+  final NavDest dest;
+  final bool extended;
+  final bool selected;
+  final MagnusTheme theme;
+  final VoidCallback onTap;
+
+  @override
+  State<_FooterItem> createState() => _FooterItemState();
+}
+
+class _FooterItemState extends State<_FooterItem> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.theme;
+    final fill = widget.selected
+        ? t.stateLayer(pressed: true)
+        : (_hover ? t.stateLayer() : const Color(0x00000000));
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          margin: EdgeInsets.symmetric(horizontal: widget.extended ? 8 : 6, vertical: 1.5),
+          padding: EdgeInsets.symmetric(horizontal: widget.extended ? 4 : 10, vertical: 9),
+          decoration: BoxDecoration(color: fill, borderRadius: BorderRadius.circular(t.radiusSm)),
+          child: Row(
+            mainAxisAlignment:
+                widget.extended ? MainAxisAlignment.start : MainAxisAlignment.center,
+            children: [
+              _NavIcon(
+                icon: widget.dest.iconFor(DesignSystem.windows),
+                selected: widget.selected,
+                hovered: _hover,
+                theme: t,
+              ),
+              if (widget.extended) ...[
+                const SizedBox(width: 12),
+                Text(widget.dest.label,
+                    style: TextStyle(
+                        color: widget.selected || _hover ? t.text : t.textMuted,
+                        fontSize: 13.5,
+                        fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500)),
+              ],
+            ],
+          ),
         ),
       ),
-      theme: SidebarXTheme(
-        width: 70,
-        decoration: BoxDecoration(
-          color: dark ? const Color(0x14FFFFFF) : const Color(0x99FFFFFF),
-          border: Border(right: BorderSide(color: t.stroke)),
+    );
+  }
+}
+
+/// Icono del panel con la píldora de selección de Fluent a su izquierda.
+class _NavIcon extends StatelessWidget {
+  const _NavIcon({
+    required this.icon,
+    required this.selected,
+    required this.hovered,
+    required this.theme,
+  });
+  final IconData icon;
+  final bool selected;
+  final bool hovered;
+  final MagnusTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = theme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          width: 3,
+          height: selected ? 16 : 0,
+          decoration: BoxDecoration(
+            color: t.accent,
+            borderRadius: BorderRadius.circular(3),
+          ),
         ),
-        itemPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        selectedItemPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        iconTheme: IconThemeData(color: t.textMuted, size: 20),
-        selectedIconTheme: IconThemeData(color: t.accent, size: 20),
-        itemDecoration: const BoxDecoration(color: Colors.transparent),
-        selectedItemDecoration: BoxDecoration(
-          color: t.accentSoft,
-          borderRadius: BorderRadius.circular(t.radius),
-        ),
-      ),
-      items: [
-        for (final d in magnusDestinations)
-          SidebarXItem(icon: d.icon, label: d.label),
+        const SizedBox(width: 9),
+        Icon(icon,
+            size: 20,
+            color: selected ? t.accent : (hovered ? t.text : t.textMuted)),
       ],
+    );
+  }
+}
+
+/// Botón para plegar el panel, abajo como en el explorador de Windows 11.
+class _CollapseButton extends StatelessWidget {
+  const _CollapseButton({required this.extended, required this.theme, required this.onTap});
+  final bool extended;
+  final MagnusTheme theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = theme;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(extended ? 14 : 0, 2, 14, 4),
+      child: Align(
+        alignment: extended ? Alignment.centerLeft : Alignment.center,
+        child: HoverButton(
+          onPressed: onTap,
+          builder: (context, states) => Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: states.isHovered ? t.stateLayer() : const Color(0x00000000),
+              borderRadius: BorderRadius.circular(t.radiusSm),
+            ),
+            child: Icon(
+              extended
+                  ? FluentIcons.panel_left_contract_24_regular
+                  : FluentIcons.panel_left_expand_24_regular,
+              size: 18,
+              color: t.textMuted,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

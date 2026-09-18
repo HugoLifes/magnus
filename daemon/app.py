@@ -263,12 +263,14 @@ def agent_run(name: str, req: AgentRunRequest, registry: AgentsDep,
 
 @api.get("/health")
 def health(manager: ManagerDep) -> dict:
+    # Un solo sondeo: la versión ya dice si Ollama responde.
+    ollama_version = manager.ollama_version()
     return {
         "status": "ok",
         "service": "magnus",
         "version": "0.9.0b1",
-        "ollama": manager.ollama_available(),
-        "ollama_version": manager.ollama_version(),
+        "ollama": ollama_version is not None,
+        "ollama_version": ollama_version,
     }
 
 

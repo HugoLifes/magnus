@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../core/theme/icons.dart';
 
 import '../../../../core/di/injector.dart';
 import '../../../../core/error/failures.dart';
@@ -110,7 +110,7 @@ class _MeterSettingsCardState extends State<MeterSettingsCard> {
         children: [
           Row(
             children: [
-              Icon(LucideIcons.coins, size: 16, color: t.ok),
+              Icon(context.icons.credits, size: 16, color: t.ok),
               const SizedBox(width: 8),
               Text('Medidor de coste', style: t.h2),
             ],
@@ -152,7 +152,7 @@ class _MeterSettingsCardState extends State<MeterSettingsCard> {
               ],
             ),
             const SizedBox(height: 14),
-            MagnusButton(label: 'Guardar', icon: LucideIcons.check, onTap: _save),
+            MagnusButton(label: 'Guardar', icon: context.icons.check, onTap: _save),
           ],
         ],
       ),

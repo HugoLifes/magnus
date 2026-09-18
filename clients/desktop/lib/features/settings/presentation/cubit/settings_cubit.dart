@@ -64,7 +64,7 @@ class SettingsCubit extends Cubit<SettingsState> {
           appearance: Appearance.fromName(_prefs.getString(AppConstants.prefAppearance)),
           fontFamily: _prefs.getString(AppConstants.prefFont) ?? AppConstants.defaultFont,
           useSystemAccent:
-              _prefs.getBool(AppConstants.prefUseSystemAccent) ?? true,
+              _prefs.getBool(AppConstants.prefUseSystemAccent) ?? false,
         )) {
     _dio.baseUrl = state.daemonUrl;
     _dio.token = _prefs.getString(AppConstants.prefDaemonToken);

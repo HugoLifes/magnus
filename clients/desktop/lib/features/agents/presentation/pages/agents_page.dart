@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart' show SelectableText;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../core/theme/icons.dart';
 
 import '../../../../core/network/api_models.dart';
 import '../../../../core/theme/magnus_theme.dart';
@@ -37,7 +37,8 @@ class _AgentsPageState extends State<AgentsPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SectionHeader(
-                icon: LucideIcons.bot,
+                icon: context.icons.agents,
+                eyebrow: 'Automatiza',
                 title: 'Agentes y skills',
                 subtitle: 'Crea asistentes con herramientas seguras que corren en tu equipo.',
                 trailing: Row(
@@ -45,14 +46,14 @@ class _AgentsPageState extends State<AgentsPage> {
                   children: [
                     ChoiceChipX(
                       label: 'Agentes',
-                      icon: LucideIcons.bot,
+                      icon: context.icons.agents,
                       selected: _tab == 0,
                       onTap: () => setState(() => _tab = 0),
                     ),
                     const SizedBox(width: 8),
                     ChoiceChipX(
                       label: 'Skills',
-                      icon: LucideIcons.wandSparkles,
+                      icon: context.icons.sparkle,
                       selected: _tab == 1,
                       onTap: () => setState(() => _tab = 1),
                     ),
@@ -119,7 +120,7 @@ class _AgentsTabState extends State<_AgentsTab> {
                   Expanded(child: Text('Tus agentes', style: t.h2)),
                   MagnusButton(
                     label: _editing ? 'Cerrar editor' : 'Nuevo agente',
-                    icon: _editing ? LucideIcons.x : LucideIcons.plus,
+                    icon: _editing ? context.icons.close : context.icons.add,
                     primary: !_editing,
                     dense: true,
                     onTap: () => setState(() => _editing = !_editing),
@@ -134,7 +135,7 @@ class _AgentsTabState extends State<_AgentsTab> {
                   for (final a in state.agents)
                     ChoiceChipX(
                       label: a.builtin ? a.name : '${a.name} · tuyo',
-                      icon: LucideIcons.bot,
+                      icon: context.icons.agents,
                       selected: a.name == state.selected,
                       onTap: () {
                         setState(() => _model = null);
@@ -172,7 +173,7 @@ class _AgentsTabState extends State<_AgentsTab> {
                       const SizedBox(width: 8),
                       MagnusButton(
                         label: 'Borrar',
-                        icon: LucideIcons.trash2,
+                        icon: context.icons.delete,
                         primary: false,
                         dense: true,
                         onTap: () => cubit.deleteAgent(agent.name),
@@ -187,9 +188,9 @@ class _AgentsTabState extends State<_AgentsTab> {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    for (final tool in agent.tools) Pill(tool, color: t.accent, icon: LucideIcons.wrench),
+                    for (final tool in agent.tools) Pill(tool, color: t.accent, icon: context.icons.build),
                     if (agent.collection != null)
-                      Pill(agent.collection!, color: t.info, icon: LucideIcons.bookOpen),
+                      Pill(agent.collection!, color: t.info, icon: context.icons.documents),
                     Pill('máx. ${agent.maxSteps} pasos', color: t.textMuted),
                   ],
                 ),
@@ -218,7 +219,7 @@ class _AgentsTabState extends State<_AgentsTab> {
                     const SizedBox(width: 10),
                     MagnusButton(
                       label: state.running ? 'Trabajando…' : 'Ejecutar',
-                      icon: LucideIcons.play,
+                      icon: context.icons.play,
                       onTap: state.running || model == null ? null : () => _run(cubit, model),
                     ),
                   ],
@@ -272,9 +273,9 @@ class _StepRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = MagnusTheme.of(context);
     final (icon, color, label) = switch (step.kind) {
-      'note' => (LucideIcons.circleAlert, t.warn, step.title),
-      'tool_call' => (LucideIcons.wrench, t.accent, 'Usa ${step.title}'),
-      _ => (LucideIcons.cornerDownRight, t.ok, 'Resultado de ${step.title}'),
+      'note' => (context.icons.warning, t.warn, step.title),
+      'tool_call' => (context.icons.build, t.accent, 'Usa ${step.title}'),
+      _ => (context.icons.stepInto, t.ok, 'Resultado de ${step.title}'),
     };
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -361,7 +362,7 @@ class _AgentEditorState extends State<_AgentEditor> {
               for (final tool in state.tools)
                 ChoiceChipX(
                   label: tool.name,
-                  icon: LucideIcons.wrench,
+                  icon: context.icons.build,
                   selected: _tools.contains(tool.name),
                   onTap: () => setState(() =>
                       _tools.contains(tool.name) ? _tools.remove(tool.name) : _tools.add(tool.name)),
@@ -406,7 +407,7 @@ class _AgentEditorState extends State<_AgentEditor> {
           const SizedBox(height: 14),
           MagnusButton(
             label: 'Guardar agente',
-            icon: LucideIcons.save,
+            icon: context.icons.save,
             onTap: () async {
               await context.read<AgentsCubit>().saveAgent(AgentInfo(
                     name: _name.text.trim(),
@@ -487,7 +488,7 @@ class _SkillsTabState extends State<_SkillsTab> {
               Row(
                 children: [
                   Expanded(child: Text('Skills', style: t.h2)),
-                  MagnusButton(label: 'Nueva skill', icon: LucideIcons.plus, dense: true, onTap: _new),
+                  MagnusButton(label: 'Nueva skill', icon: context.icons.add, dense: true, onTap: _new),
                 ],
               ),
               const SizedBox(height: 4),
@@ -553,7 +554,7 @@ class _SkillsTabState extends State<_SkillsTab> {
                   children: [
                     MagnusButton(
                       label: 'Guardar skill',
-                      icon: LucideIcons.save,
+                      icon: context.icons.save,
                       onTap: () => cubit.saveSkill(
                         _name.text.trim(),
                         _description.text.trim(),
@@ -565,7 +566,7 @@ class _SkillsTabState extends State<_SkillsTab> {
                     if (state.skills.any((s) => s.name == _name.text.trim() && !s.builtin))
                       MagnusButton(
                         label: 'Borrar',
-                        icon: LucideIcons.trash2,
+                        icon: context.icons.delete,
                         primary: false,
                         onTap: () {
                           cubit.deleteSkill(_name.text.trim());

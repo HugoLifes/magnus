@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../core/theme/icons.dart';
 
 import '../../../../core/network/api_models.dart';
 import '../../../../core/theme/magnus_theme.dart';
@@ -55,7 +55,8 @@ class _RagPageState extends State<RagPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SectionHeader(
-                icon: LucideIcons.brain,
+                icon: context.icons.brain,
+                eyebrow: 'Tu conocimiento',
                 title: 'Documentos y memoria',
                 subtitle: 'Indexa tus archivos para que el chat y los agentes respondan con tus datos.',
                 trailing: state.busy && state.busyLabel != null
@@ -77,7 +78,7 @@ class _RagPageState extends State<RagPage> {
                         Expanded(child: Text('Colecciones', style: t.h2)),
                         MagnusButton(
                           label: _showCreate ? 'Cancelar' : 'Nueva colección',
-                          icon: _showCreate ? LucideIcons.x : LucideIcons.folderPlus,
+                          icon: _showCreate ? context.icons.close : context.icons.newFolder,
                           primary: !_showCreate,
                           dense: true,
                           onTap: () => setState(() => _showCreate = !_showCreate),
@@ -116,7 +117,7 @@ class _RagPageState extends State<RagPage> {
                           for (final c in state.collections)
                             ChoiceChipX(
                               label: '${c.name} · ${c.documents} docs',
-                              icon: LucideIcons.bookOpen,
+                              icon: context.icons.documents,
                               selected: c.name == state.selected,
                               onTap: () => cubit.select(c.name),
                             ),
@@ -162,7 +163,7 @@ class _RagPageState extends State<RagPage> {
                         const SizedBox(width: 10),
                         MagnusButton(
                           label: 'Recordar',
-                          icon: LucideIcons.plus,
+                          icon: context.icons.add,
                           onTap: state.busy ? null : () => _addMemory(cubit),
                         ),
                       ],
@@ -170,7 +171,7 @@ class _RagPageState extends State<RagPage> {
                     const SizedBox(height: 12),
                     for (final m in state.memories)
                       _Row(
-                        icon: LucideIcons.lightbulb,
+                        icon: context.icons.tip,
                         text: m.text,
                         onDelete: () => cubit.deleteMemory(m.id),
                       ),
@@ -245,7 +246,7 @@ class _CreateForm extends StatelessWidget {
               label: 'Solapamiento', value: overlap, min: 0, max: 600, divisions: 24,
               unit: 'car.', onChanged: onOverlap),
           const SizedBox(height: 8),
-          MagnusButton(label: 'Crear colección', icon: LucideIcons.check, onTap: onCreate),
+          MagnusButton(label: 'Crear colección', icon: context.icons.check, onTap: onCreate),
         ],
       ),
     );
@@ -285,7 +286,7 @@ class _CollectionDetail extends StatelessWidget {
               const SizedBox(width: 8),
               MagnusButton(
                 label: 'Borrar',
-                icon: LucideIcons.trash2,
+                icon: context.icons.delete,
                 primary: false,
                 dense: true,
                 onTap: state.busy ? null : () => cubit.deleteCollection(collection.name),
@@ -305,7 +306,7 @@ class _CollectionDetail extends StatelessWidget {
             children: [
               MagnusButton(
                 label: 'Indexar',
-                icon: LucideIcons.hammer,
+                icon: context.icons.build,
                 onTap: state.busy
                     ? null
                     : () {
@@ -341,7 +342,7 @@ class _CollectionDetail extends StatelessWidget {
           const SizedBox(height: 8),
           if (state.documents.isEmpty) Text('Sin documentos todavía.', style: t.small),
           for (final d in state.documents)
-            _Row(icon: LucideIcons.fileText, text: '${d.title} · ${d.chunks} fragmentos'),
+            _Row(icon: context.icons.document, text: '${d.title} · ${d.chunks} fragmentos'),
           const SizedBox(height: 18),
           Text('Probar búsqueda', style: t.h2),
           const SizedBox(height: 8),
@@ -357,7 +358,7 @@ class _CollectionDetail extends StatelessWidget {
               const SizedBox(width: 10),
               MagnusButton(
                 label: 'Buscar',
-                icon: LucideIcons.search,
+                icon: context.icons.search,
                 primary: false,
                 onTap: state.busy ? null : () => cubit.search(query.text),
               ),
@@ -418,7 +419,7 @@ class _Row extends StatelessWidget {
               onTap: onDelete,
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
-                child: Icon(LucideIcons.x, size: 14, color: t.textFaint),
+                child: Icon(context.icons.close, size: 14, color: t.textFaint),
               ),
             ),
         ],

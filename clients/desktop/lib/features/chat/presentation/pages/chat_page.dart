@@ -3,7 +3,7 @@ import 'package:flutter/material.dart'
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../core/theme/icons.dart';
 
 import '../../../../core/network/api_models.dart';
 import '../../../../core/responsive/breakpoints.dart';
@@ -98,7 +98,7 @@ class _History extends StatelessWidget {
         children: [
           MagnusButton(
             label: 'Nueva conversación',
-            icon: LucideIcons.plus,
+            icon: context.icons.add,
             onTap: state.sending ? null : cubit.newConversation,
           ),
           const SizedBox(height: 14),
@@ -169,7 +169,7 @@ class _HistoryItemState extends State<_HistoryItem> {
           ),
           child: Row(
             children: [
-              Icon(LucideIcons.messageCircle,
+              Icon(context.icons.chat,
                   size: 15, color: widget.selected ? t.accent : t.textMuted),
               const SizedBox(width: 10),
               Expanded(
@@ -192,7 +192,7 @@ class _HistoryItemState extends State<_HistoryItem> {
               if (_hover)
                 GestureDetector(
                   onTap: widget.onDelete,
-                  child: Icon(LucideIcons.trash2, size: 14, color: t.textFaint),
+                  child: Icon(context.icons.delete, size: 14, color: t.textFaint),
                 ),
             ],
           ),
@@ -234,14 +234,14 @@ class _Thread extends StatelessWidget {
                   Text('Dónde', style: t.small),
                   ChoiceChipX(
                     label: 'Este equipo',
-                    icon: LucideIcons.cpu,
+                    icon: context.icons.gpu,
                     selected: state.provider == null,
                     onTap: () => cubit.selectProvider(null),
                   ),
                   for (final p in state.providers.where((p) => p.enabled))
                     ChoiceChipX(
                       label: p.name,
-                      icon: p.location == 'lan' ? LucideIcons.network : LucideIcons.cloud,
+                      icon: p.location == 'lan' ? context.icons.network : context.icons.cloud,
                       selected: p.id == state.provider,
                       onTap: () => cubit.selectProvider(p.id),
                     ),
@@ -254,7 +254,7 @@ class _Thread extends StatelessWidget {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Icon(LucideIcons.zap, size: 16, color: state.model == null ? t.warn : t.ok),
+                  Icon(context.icons.bolt, size: 16, color: state.model == null ? t.warn : t.ok),
                   const SizedBox(width: 8),
                   Text('Modelo', style: t.small),
                   const SizedBox(width: 10),
@@ -283,9 +283,9 @@ class _Thread extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Pill('${state.tokens} tokens', color: t.info, icon: LucideIcons.coins),
+                  Pill('${state.tokens} tokens', color: t.info, icon: context.icons.credits),
                   const SizedBox(width: 8),
-                  Pill('${formatUsd(state.savings)} ahorro', color: Brand.amber, icon: LucideIcons.piggyBank),
+                  Pill('${formatUsd(state.savings)} ahorro', color: Brand.amber, icon: context.icons.savings),
                 ],
               ),
               const SizedBox(height: 10),
@@ -303,7 +303,7 @@ class _Thread extends StatelessWidget {
                   for (final c in state.collections)
                     ChoiceChipX(
                       label: c.name,
-                      icon: LucideIcons.bookOpen,
+                      icon: context.icons.documents,
                       selected: c.name == state.collection,
                       onTap: () => cubit.selectCollection(c.name),
                     ),
@@ -325,7 +325,7 @@ class _Thread extends StatelessWidget {
         Expanded(
           child: state.messages.isEmpty
               ? EmptyState(
-                  icon: state.models.isEmpty ? LucideIcons.download : LucideIcons.messagesSquare,
+                  icon: state.models.isEmpty ? context.icons.download : context.icons.chats,
                   title: state.models.isEmpty ? 'Descarga un modelo para empezar' : 'Empieza a chatear',
                   message: state.models.isEmpty
                       ? 'En Modelos → Para este equipo verás los que caben en tu hardware.'
@@ -436,7 +436,7 @@ class _ThinkingState extends State<_Thinking> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(LucideIcons.brain, size: 13, color: t.textFaint),
+                  Icon(context.icons.brain, size: 13, color: t.textFaint),
                   const SizedBox(width: 6),
                   Text(
                       widget.msg.streaming && widget.msg.text.isEmpty
@@ -550,7 +550,7 @@ class _Composer extends StatelessWidget {
                   color: t.accent,
                   borderRadius: BorderRadius.circular(t.radius),
                 ),
-                child: Icon(LucideIcons.send, color: t.onAccent, size: 18),
+                child: Icon(context.icons.send, color: t.onAccent, size: 18),
               ),
             ),
           ),
