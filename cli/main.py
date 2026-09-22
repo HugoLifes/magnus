@@ -1038,6 +1038,9 @@ def claude_code(
         "ANTHROPIC_BASE_URL": url.rstrip("/"),
         "ANTHROPIC_AUTH_TOKEN": token or "magnus",
         "ANTHROPIC_MODEL": modelo or "magnus-auto",
+        # Claude Code usa un modelo pequeño para títulos y resúmenes: si no se
+        # fija, intenta ir a la nube por él.
+        "ANTHROPIC_SMALL_FAST_MODEL": modelo or "magnus-auto",
         # Claude Code pide un contexto grande; los modelos locales rinden mejor
         # sin razonamiento largo en tareas de herramientas.
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",

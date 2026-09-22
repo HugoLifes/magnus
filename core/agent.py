@@ -61,6 +61,33 @@ _RESULT_CHARS = 4000
 _MIN_TOOL_PARAMS_B = 3.0
 
 
+# Una llamada escrita a mano por el modelo: {"name": …, "arguments": {…}}.
+_TEXT_CALL = re.compile(r"\{[^{}]*\"name\"\s*:\s*\"(\w+)\"[^{}]*\"arguments\"\s*:\s*(\{.*?\})\s*\}",
+                        re.DOTALL)
+
+
+def _calls_in_text(text: str, allowed: tuple[str, ...]) -> list[dict]:
+    """Llamadas a herramientas que el modelo escribió como texto plano.
+
+    Modelos locales con plantillas incompletas responden el JSON de la llamada en
+    lugar de emitirla por el protocolo. Se rescata solo si la herramienta es una
+    de las que ese agente tiene permitidas: nunca se ejecuta algo que el texto
+    invente.
+    """
+    calls: list[dict] = []
+    for match in _TEXT_CALL.finditer(text or ""):
+        nombre = match.group(1)
+        if nombre not in allowed:
+            continue
+        try:
+            argumentos = json.loads(match.group(2))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(argumentos, dict):
+            calls.append({"function": {"name": nombre, "arguments": argumentos}})
+    return calls
+
+
 class AgentError(ValueError):
     """Error con un mensaje para el usuario."""
 
@@ -450,6 +477,12 @@ class AgentRunner:
                 eval_ns += response.get("eval_duration") or 0
                 reply = response.get("message") or {}
                 calls = reply.get("tool_calls") or []
+                if not calls:
+                    # Algunos modelos locales escriben la llamada como texto en
+                    # vez de usar el protocolo: su plantilla no emite
+                    # `tool_calls`. Si el texto es una llamada válida a una
+                    # herramienta que este agente tiene, se ejecuta igual.
+                    calls = _calls_in_text(reply.get("content") or "", spec.tools)
                 if not calls:
                     answer = (reply.get("content") or "").strip()
                     break

@@ -41,7 +41,8 @@ toda la familia NVIDIA:
 | Pantalla de plan y licencia en la app | ✅ | Ajustes → Magnus Pro: activar licencia pegando el texto, sin internet |
 | Motor de Claude Code (`/v1/messages`) | ✅ | Proxy con medidor, guarda de memoria y elección de modelo; `magnus claude` |
 | Licencias firmadas (Ed25519) | ✅ | `/license`, `magnus license`; se validan sin internet, con 14 días de gracia |
-| Permisos de Magnus Code | 🟡 | Motor de reglas y clasificación de riesgo listos; faltan herramientas, terminal y sandbox |
+| Magnus Code: permisos, herramientas y terminal | 🟡 | Reglas, riesgo de comandos, leer/listar/buscar/editar/escribir y ejecución con tiempo límite y árbol de procesos; falta el sandbox y el bucle del agente |
+| Agentes con modelos locales | ✅ | Se rescatan las llamadas que el modelo escribe como texto (medido con qwen2.5-coder:7b) |
 | Prueba e2e en vivo | ✅ | `scripts/e2e.py`: 19 ok en el Jetson Orin Nano (chat, RAG, agentes, cambios de modelo, concurrencia, token, persistencia) |
 | CI verde | ✅ | ruff limpio, 264 tests |
 | Contrato OpenAPI congelado | ✅ | `docs/api/openapi-v1.json`, versión `0.9.0b1` |

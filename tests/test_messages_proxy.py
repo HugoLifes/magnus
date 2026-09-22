@@ -60,6 +60,13 @@ def test_respeta_el_modelo_si_esta_descargado(tmp_path):
     assert proxy.resolve_model("qwen2.5:0.5b") == "qwen2.5:0.5b"
 
 
+def test_magnus_auto_deja_elegir_a_magnus(tmp_path):
+    """Es lo que manda `magnus claude`: que elija el equipo, no el cliente."""
+    proxy = _proxy(tmp_path, ["qwen2.5:0.5b", "qwen2.5-coder:7b"])
+    for pedido in ("magnus-auto", "auto", "", "MAGNUS-AUTO"):
+        assert proxy.resolve_model(pedido) == "qwen2.5-coder:7b", pedido
+
+
 def test_modelo_local_inexistente_lo_dice(tmp_path):
     proxy = _proxy(tmp_path, ["qwen2.5:0.5b"])
     with pytest.raises(ProxyError, match="no está descargado"):

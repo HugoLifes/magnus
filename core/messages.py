@@ -46,6 +46,10 @@ from core.store import Store
 # que traducirlo a lo que sí corre aquí.
 _REMOTE_HINTS = ("claude", "sonnet", "haiku", "opus", "gpt-", "o1", "o3", "gemini", "grok")
 
+# Pedir explícitamente que Magnus elija. Es lo que manda `magnus claude`, para no
+# atar el cliente a un modelo concreto del equipo.
+AUTO_MODELS = ("", "magnus-auto", "auto", "magnus")
+
 _TIMEOUT = httpx.Timeout(600.0, connect=5.0, read=None)
 
 
@@ -106,14 +110,15 @@ class MessagesProxy:
         """
         requested = (requested or "").strip()
         local = self._manager.list_available()
+        auto = requested.lower() in AUTO_MODELS
         if not local:
             raise ProxyError(
                 "No hay ningún modelo descargado en este equipo. Descarga uno para "
                 "programar, por ejemplo: magnus fetch qwen2.5-coder:7b"
             )
-        if requested in local or f"{requested}:latest" in local:
+        if not auto and (requested in local or f"{requested}:latest" in local):
             return requested
-        if requested and not self._looks_remote(requested):
+        if not auto and not self._looks_remote(requested):
             raise ProxyError(
                 f"El modelo {requested!r} no está descargado. Descárgalo con "
                 f"`magnus fetch {requested}` o deja que Magnus elija el de este equipo."
