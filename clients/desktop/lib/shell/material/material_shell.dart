@@ -29,6 +29,10 @@ class MaterialShell extends StatefulWidget {
 class _MaterialShellState extends State<MaterialShell> {
   late int _index = widget.initialPage;
 
+  /// Plegado a mano. Null: lo decide el ancho de la ventana, que es lo que
+  /// espera Material; en cuanto la persona toca el botón, manda ella.
+  bool? _extended;
+
   @override
   Widget build(BuildContext context) {
     final t = MagnusTheme.forDesign(
@@ -54,15 +58,20 @@ class _MaterialShellState extends State<MaterialShell> {
       ),
       home: LayoutBuilder(
         builder: (context, constraints) {
-          final extended = constraints.maxWidth >= 1040;
+          final extended = _extended ?? constraints.maxWidth >= 1040;
           return Scaffold(
             body: ShellBackdrop(
               theme: t,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _Rail(theme: t, index: _index, extended: extended,
-                      onSelect: (i) => setState(() => _index = i)),
+                  _Rail(
+                    theme: t,
+                    index: _index,
+                    extended: extended,
+                    onSelect: (i) => setState(() => _index = i),
+                    onToggle: () => setState(() => _extended = !extended),
+                  ),
                   Expanded(
                     child: themedPage(DesignSystem.material, widget.appearance,
                         widget.font, widget.accent, _index),
@@ -85,11 +94,13 @@ class _Rail extends StatelessWidget {
     required this.index,
     required this.extended,
     required this.onSelect,
+    required this.onToggle,
   });
   final MagnusTheme theme;
   final int index;
   final bool extended;
   final ValueChanged<int> onSelect;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -113,6 +124,10 @@ class _Rail extends StatelessWidget {
               selectedIndex: index,
               onDestinationSelected: onSelect,
               leading: ShellBrand(theme: t, extended: extended),
+              trailing: Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: SidebarToggle(theme: t, expanded: extended, onTap: onToggle),
+              ),
               indicatorColor: t.accentSoft,
               selectedIconTheme: IconThemeData(color: t.accent, size: 22),
               unselectedIconTheme: IconThemeData(color: t.textMuted, size: 22),

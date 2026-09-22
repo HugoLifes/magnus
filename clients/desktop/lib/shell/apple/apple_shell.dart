@@ -33,6 +33,10 @@ class AppleShell extends StatefulWidget {
 class _AppleShellState extends State<AppleShell> {
   late int _index = widget.initialPage;
 
+  /// La barra lateral se pliega igual que en los otros temas. En macOS el propio
+  /// `MacosWindow` la esconde; fuera de macOS lo hace la réplica.
+  bool _sidebar = true;
+
   /// Ajustes es el último destino y vive en el pie, como en Música o Notas.
   static final _settings = magnusDestinations.length - 1;
 
@@ -81,7 +85,13 @@ class _AppleShellState extends State<AppleShell> {
             : Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _ReplicaSidebar(theme: t, index: _index, onSelect: _select),
+                  _ReplicaSidebar(
+                    theme: t,
+                    index: _index,
+                    onSelect: _select,
+                    expanded: _sidebar,
+                    onToggle: () => setState(() => _sidebar = !_sidebar),
+                  ),
                   Expanded(child: scaffold),
                 ],
               ),
@@ -123,17 +133,27 @@ class _AppleShellState extends State<AppleShell> {
 /// Réplica de la barra lateral de macOS para Windows y Linux: fondo del
 /// material «sidebar», título de sección gris y selección redondeada.
 class _ReplicaSidebar extends StatelessWidget {
-  const _ReplicaSidebar({required this.theme, required this.index, required this.onSelect});
+  const _ReplicaSidebar({
+    required this.theme,
+    required this.index,
+    required this.onSelect,
+    required this.expanded,
+    required this.onToggle,
+  });
   final MagnusTheme theme;
   final int index;
   final ValueChanged<int> onSelect;
+  final bool expanded;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
     final t = theme;
     final settings = magnusDestinations.length - 1;
-    return Container(
-      width: 232,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      width: expanded ? 232 : 64,
       decoration: BoxDecoration(
         color: t.isDark ? const Color(0xFF252528) : const Color(0xFFE8E8EB),
         border: Border(right: BorderSide(color: t.stroke)),
@@ -141,13 +161,14 @@ class _ReplicaSidebar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ShellBrand(theme: t, extended: true),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
-            child: Text('Navegación',
-                style: TextStyle(
-                    color: t.textFaint, fontSize: 11, fontWeight: FontWeight.w700)),
-          ),
+          ShellBrand(theme: t, extended: expanded),
+          if (expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
+              child: Text('Navegación',
+                  style: TextStyle(
+                      color: t.textFaint, fontSize: 11, fontWeight: FontWeight.w700)),
+            ),
           for (var i = 0; i < settings; i++)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
@@ -155,19 +176,22 @@ class _ReplicaSidebar extends StatelessWidget {
                 dest: magnusDestinations[i],
                 selected: index == i,
                 theme: t,
+                expanded: expanded,
                 onTap: () => onSelect(i),
               ),
             ),
           const Spacer(),
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
             child: _AppleItem(
               dest: magnusDestinations[settings],
               selected: index == settings,
               theme: t,
+              expanded: expanded,
               onTap: () => onSelect(settings),
             ),
           ),
+          SidebarToggle(theme: t, expanded: expanded, onTap: onToggle),
         ],
       ),
     );
@@ -182,11 +206,13 @@ class _AppleItem extends StatefulWidget {
     required this.selected,
     required this.theme,
     required this.onTap,
+    this.expanded = true,
   });
   final NavDest dest;
   final bool selected;
   final MagnusTheme theme;
   final VoidCallback onTap;
+  final bool expanded;
 
   @override
   State<_AppleItem> createState() => _AppleItemState();
@@ -211,14 +237,22 @@ class _AppleItemState extends State<_AppleItem> {
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(color: fill, borderRadius: BorderRadius.circular(t.radiusSm)),
           child: Row(
+            mainAxisAlignment:
+                widget.expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
             children: [
               Icon(widget.dest.iconFor(DesignSystem.apple), size: 17, color: t.accent),
-              const SizedBox(width: 10),
-              Text(widget.dest.label,
-                  style: TextStyle(
-                      color: t.text,
-                      fontSize: 13,
-                      fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w400)),
+              if (widget.expanded) ...[
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(widget.dest.label,
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      style: TextStyle(
+                          color: t.text,
+                          fontSize: 13,
+                          fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w400)),
+                ),
+              ],
             ],
           ),
         ),

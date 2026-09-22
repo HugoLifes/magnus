@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/brand.dart';
+import '../../core/theme/icons.dart';
 import '../../core/theme/magnus_theme.dart';
 
 /// Fondo de la ventana, el mismo gesto que la web: tinta nocturna con dos
@@ -59,6 +60,63 @@ class _GlowPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_GlowPainter old) => old.first != first || old.second != second;
+}
+
+/// Botón para plegar y desplegar la barra lateral.
+///
+/// Es el mismo en los tres temas —cambia solo el icono, que sale del set de cada
+/// plataforma— porque plegar la barra es de las pocas cosas que la gente busca
+/// en el mismo sitio venga de donde venga.
+class SidebarToggle extends StatefulWidget {
+  const SidebarToggle({
+    super.key,
+    required this.theme,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final MagnusTheme theme;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  State<SidebarToggle> createState() => _SidebarToggleState();
+}
+
+class _SidebarToggleState extends State<SidebarToggle> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.theme;
+    final icons = MagnusIcons.forDesign(t.design);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(widget.expanded ? 14 : 0, 2, 14, 6),
+      child: Align(
+        alignment: widget.expanded ? Alignment.centerLeft : Alignment.center,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _hover ? t.stateLayer() : const Color(0x00000000),
+                borderRadius: BorderRadius.circular(t.radiusSm),
+              ),
+              child: Icon(
+                widget.expanded ? icons.panelCollapse : icons.panelExpand,
+                size: 18,
+                color: t.textMuted,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Monograma de Magnus: una M hecha de barras de nivel (lectura de VRAM y

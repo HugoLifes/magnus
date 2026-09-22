@@ -1,5 +1,4 @@
-import 'package:fluent_ui/fluent_ui.dart' hide FluentIcons;
-import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/material.dart' show Material;
 import 'package:sidebarx/sidebarx.dart';
 
@@ -152,9 +151,9 @@ class _Sidebar extends StatelessWidget {
         theme: t,
         onTap: () => controller.selectIndex(_settings),
       ),
-      toggleButtonBuilder: (context, extended) => _CollapseButton(
-        extended: extended,
+      toggleButtonBuilder: (context, extended) => SidebarToggle(
         theme: t,
+        expanded: extended,
         onTap: () => controller.setExtended(!extended),
       ),
       extendedTheme: _theme(extended: true),
@@ -263,42 +262,6 @@ class _NavIcon extends StatelessWidget {
             size: 20,
             color: selected ? t.accent : (hovered ? t.text : t.textMuted)),
       ],
-    );
-  }
-}
-
-/// Botón para plegar el panel, abajo como en el explorador de Windows 11.
-class _CollapseButton extends StatelessWidget {
-  const _CollapseButton({required this.extended, required this.theme, required this.onTap});
-  final bool extended;
-  final MagnusTheme theme;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = theme;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(extended ? 14 : 0, 2, 14, 4),
-      child: Align(
-        alignment: extended ? Alignment.centerLeft : Alignment.center,
-        child: HoverButton(
-          onPressed: onTap,
-          builder: (context, states) => Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: states.isHovered ? t.stateLayer() : const Color(0x00000000),
-              borderRadius: BorderRadius.circular(t.radiusSm),
-            ),
-            child: Icon(
-              extended
-                  ? FluentIcons.panel_left_contract_24_regular
-                  : FluentIcons.panel_left_expand_24_regular,
-              size: 18,
-              color: t.textMuted,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
