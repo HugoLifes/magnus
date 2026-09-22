@@ -836,6 +836,90 @@ habría costado $X».
 
 ---
 
+## 16. Monetizar sin servidores propios, y qué hacer con los anuncios
+
+**Dato de Hugo (2026-09-21):** no tiene servidores propios. El B200 al que tiene acceso no se
+puede dar por disponible para vender capacidad; primero hay que confirmar que ese uso esté
+autorizado.
+
+### Casi todo Magnus funciona sin un servidor de Hugo [Verificado / Publicado]
+
+| Pieza | Dónde corre | ¿Necesita servidor de Hugo? |
+|---|---|---|
+| App, daemon, modelos (Ollama) | PC del usuario | No |
+| RAG de pago | PC del usuario; la licencia firmada se valida sin internet | No |
+| Magnus Code | PC del usuario | No |
+| **Magnus como motor de Claude Code** | PC del usuario: Claude Code apunta `ANTHROPIC_BASE_URL` al daemon local | **No** |
+| APIs con la clave del usuario | Cuenta del usuario (NVIDIA, Groq, OpenRouter) | No |
+| Vender licencias Pro | Pasarela de pago + función sin servidor que firma y envía la licencia | Casi nada (capa gratuita) |
+| **Magnus Cloud** | GPUs | **Sí: es lo único** |
+
+**Cómo funciona «Magnus como motor de Claude Code» [Publicado]:**
+
+- Claude Code lee `ANTHROPIC_BASE_URL` al arrancar y manda todo a esa dirección, añadiendo
+  `/v1/messages`. Anthropic lo documenta en su página de «LLM gateways».
+- Desde Ollama 0.14 (16-ene-2026), Ollama responde ese formato de forma nativa en
+  `localhost:11434/v1/messages`.
+- **Lo que añade Magnus en medio:**
+  - el modelo recomendado para programar según el equipo;
+  - el medidor por tarea;
+  - la guarda de memoria;
+  - claves por cliente;
+  - el aviso si el turno sale a la nube.
+- El usuario escribe `claude` en su PowerShell y todo corre en su GPU. Hugo no paga nada por
+  cada uso.
+
+### Magnus Cloud sin tener servidores: opciones en orden [Propuesta]
+
+1. **No lanzarlo al principio.** La beta sale con equipo local, tu red y tu propia clave.
+   Magnus Cloud espera a que haya demanda.
+2. **El cliente pone la GPU y Hugo vende el software.** Team y Enterprise corren el mismo
+   gateway (`cloud/`) en su propio servidor, con cuotas por persona. Se cobra licencia, no
+   cómputo. Es el modelo más sano sin infraestructura propia.
+3. **GPUs rentadas por hora, financiadas por lo prepagado.** Primero se venden paquetes (entra
+   el dinero) y después se renta la capacidad (RunPod, Lambda o proveedores de DGX Cloud
+   Lepton). El gateway corre en cualquier lado; solo cambia la dirección del servidor de modelos.
+4. **El B200 al que Hugo tiene acceso**, solo si su dueño autoriza el uso comercial.
+5. **Red de GPUs de la comunidad** (idea de v2, riesgosa): usuarios con RTX ociosas venden
+   capacidad a través de Magnus y Magnus se queda una comisión, como Salad o Vast.ai. Una
+   RTX 5090 gana $0.30–0.60 por hora [Publicado].
+   - **Choca con la promesa de privacidad:** los datos del cliente corren en la PC de un
+     extraño.
+   - **La rentabilidad de estas redes no está probada** [Publicado].
+   - Solo tendría sentido para trabajos no sensibles, o dentro de la flota de una misma empresa.
+
+### Anuncios: recomendación, no ponerlos dentro de la app [Propuesta]
+
+**Por qué no:**
+
+- **Rompen la promesa central.** Las redes de anuncios necesitan rastreo y telemetría, y las
+  convenciones del proyecto prohíben la telemetría saliente por defecto
+  (`docs/CONVENTIONS.md`).
+- **Espantan al cliente que paga.** Un despacho o una clínica no instala una app con anuncios
+  para leer sus contratos o expedientes.
+- **Dejan poco dinero.** Una app de escritorio con anuncios deja muy poco por usuario.
+- **Dañan la confianza donde más importa:** en las respuestas del RAG y en el código.
+
+**Lo que sí monetiza la atención sin traicionar la marca:**
+
+| Vía | Cómo | Cuidado | Potencial |
+|---|---|---|---|
+| **Preinstalación con fabricantes e integradores** | Magnus preinstalado en PCs y laptops con RTX o RTX Spark de integradores mexicanos, cobrando por equipo vendido | Negociación comercial | Alto |
+| **Afiliados en el momento justo** | Cuando «no cabe», sugerir la mejora concreta (RAM, GPU o un equipo compatible) con enlace de afiliado. Mercado Libre paga hasta 24 % en algunas categorías y pide redes sociales para ciertos beneficios; Amazon México no acepta afiliados nuevos por ahora; la electrónica paga 1–3 % [Publicado] | Etiqueta «Enlace de afiliado», sin rastreo, solo donde ayuda y con opción de apagarlo | Bajo a medio |
+| **Catálogo con «Destacado»** | Un creador de modelos o un proveedor paga por aparecer destacado | Marcado «Patrocinado»; **nunca** cambia el veredicto de si cabe | Medio |
+| **Marketplace** | Comisión de 20–30 % por skills y agentes de terceros | Revisión de seguridad de cada paquete | Medio |
+| **Academia Magnus** | Cursos, certificación y talleres para empresas, en español | Tiempo de Hugo | Medio |
+
+### Orden sugerido para ganar dinero sin servidores
+
+1. Licencias Pro (RAG + Magnus Code).
+2. Servicios y Enterprise (su GPU, tu software).
+3. Preinstalación con integradores.
+4. Afiliados en el momento justo.
+5. Magnus Cloud cuando haya demanda, con GPUs rentadas y pagadas por lo prepagado.
+
+---
+
 ## 12. Fuentes
 
 Mercado y competencia:
@@ -891,6 +975,15 @@ RAG y agentes de código:
 - Reranking — https://redis.io/blog/top-reranking-models-rag-accuracy/
 - NeMo Retriever — https://developer.nvidia.com/blog/nvidia-nemo-retriever-delivers-accurate-multimodal-pdf-data-extraction-15x-faster/
 - Open WebUI frente a AnythingLLM — https://wz-it.com/en/blog/open-webui-vs-anythingllm-comparison/
+
+Monetizar sin servidores:
+- Claude Code con otros backends (documentación oficial) — https://code.claude.com/docs/en/llm-gateway
+- Compatibilidad de Ollama con la API de Anthropic — https://docs.ollama.com/api/anthropic-compatibility
+- Ollama y Claude Code — https://ollama.com/blog/claude
+- Comisiones de Amazon Afiliados México — https://afiliados.amazon.com.mx/help/node/topic/GRXPHT8U84RAYDXZ
+- Afiliados de Mercado Libre en 2026 — https://www.xataka.com.mx/seleccion/mercado-libre-quiere-que-ganes-dinero-hot-sale-2026-asi-funciona-su-programa-afiliados-al-que-puede-unirse
+- Redes de GPUs de consumo — https://www.tomshardware.com/pc-components/gpus/startups-pitch-an-airbnb-for-ai-inference-that-pays-gamers-for-their-idle-pcs
+- Ganancias de rentar una GPU en Vast.ai — https://vast.ai/article/how-much-money-can-you-earn-renting-out-your-gpu-on-vast-ai
 
 Seguridad y diseño:
 - CrowdStrike sobre OpenClaw — https://www.crowdstrike.com/en-us/blog/what-security-teams-need-to-know-about-openclaw-ai-super-agent/
