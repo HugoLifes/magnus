@@ -551,6 +551,7 @@ class DaemonSettings {
     required this.hardwareLifetimeYears,
     required this.hoursPerDay,
     required this.cloudReference,
+    required this.persona,
   });
 
   final double electricityUsdPerKwh;
@@ -559,13 +560,66 @@ class DaemonSettings {
   final double hoursPerDay;
   final String cloudReference;
 
+  /// Cómo habla Magnus en el chat (ver /personas).
+  final String persona;
+
   factory DaemonSettings.fromJson(Map<String, dynamic> j) => DaemonSettings(
         electricityUsdPerKwh: _d(j['electricity_usd_per_kwh']),
         hardwareCostUsd: _dn(j['hardware_cost_usd']),
         hardwareLifetimeYears: _d(j['hardware_lifetime_years']),
         hoursPerDay: _d(j['hours_per_day']),
         cloudReference: _s(j['cloud_reference'], 'auto'),
+        persona: _s(j['persona'], 'magnus'),
       );
+}
+
+/// Una forma de hablar del asistente.
+class PersonaInfo {
+  const PersonaInfo({required this.id, required this.name, required this.tagline});
+
+  final String id;
+  final String name;
+  final String tagline;
+
+  factory PersonaInfo.fromJson(Map<String, dynamic> j) => PersonaInfo(
+        id: _s(j['id'], ''),
+        name: _s(j['name'], ''),
+        tagline: _s(j['tagline'], ''),
+      );
+}
+
+/// Plan de este equipo y qué desbloquea.
+class LicenseInfo {
+  const LicenseInfo({
+    required this.plan,
+    required this.effectivePlan,
+    required this.holder,
+    required this.status,
+    this.daysLeft,
+    required this.features,
+  });
+
+  final String plan;
+  final String effectivePlan;
+  final String holder;
+  final String status;
+  final int? daysLeft;
+  final Map<String, bool> features;
+
+  bool get isPro => effectivePlan != 'community';
+
+  factory LicenseInfo.fromJson(Map<String, dynamic> j) {
+    final lic = (j['license'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final feats = (j['features'] as Map?)?.cast<String, dynamic>() ?? const {};
+    return LicenseInfo(
+      plan: _s(lic['plan'], 'community'),
+      effectivePlan: _s(lic['effective_plan'], 'community'),
+      holder: _s(lic['holder'], ''),
+      status: _s(lic['status'], 'activa'),
+      daysLeft: lic['days_left'] == null ? null : (lic['days_left'] as num).toInt(),
+      features: {for (final e in feats.entries) e.key: e.value == true},
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

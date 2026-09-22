@@ -39,6 +39,7 @@ from core.metering import (
     parse_param_size,
     pick_reference,
 )
+from core.persona import compose as compose_persona
 from core.platform import PlatformProfile
 from core.rag import RagError, RagStore, format_context
 from core.runtime_manager import RuntimeManagerError
@@ -177,6 +178,7 @@ class ChatService:
         # Buscar en la memoria calcula un embedding con otro modelo. Donde solo
         # cabe un modelo a la vez (Jetson, laptops de 4–8 GB) eso expulsaría al
         # de chat en cada turno; ahí la memoria se usa solo si se pide.
+        self._platform = platform
         self._memory_by_default = platform.max_loaded_models > 1
         self._params_cache: dict[tuple[str, str], float | None] = {}
         hardware_cost = settings.hardware_cost_usd
@@ -224,6 +226,7 @@ class ChatService:
         rag_k: int = 4,
         think: bool | None = None,
         provider: str | None = None,
+        persona: str | None = None,
     ) -> Iterator[dict]:
         # Todo lo que puede fallar va antes de escribir en la base: un turno que
         # no llega al modelo no deja conversaciones vacías ni mensajes huérfanos.
@@ -261,7 +264,16 @@ class ChatService:
 
         if conv is None:
             conv = self._store.create_conversation(model=model, title=title_from(message))
-        effective_system = compose_system_prompt(system, active)
+        # Identidad y personalidad primero; encima, lo que pida el usuario y las
+        # skills activas. En modelos pequeños el prompt se acorta solo.
+        base_system = compose_persona(
+            persona or self._settings.persona,
+            params_b=self._params(provider_id, client, model),
+            hardware=self._platform.display_name,
+            model=model,
+            extra=system,
+        )
+        effective_system = compose_system_prompt(base_system, active)
         if context:
             effective_system = f"{effective_system}\n\n{context}" if effective_system else context
 

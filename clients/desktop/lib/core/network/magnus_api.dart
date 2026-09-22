@@ -277,6 +277,21 @@ class MagnusApi {
 
   Future<DaemonSettings> daemonSettings() async => DaemonSettings.fromJson(await _get('/settings'));
 
+  /// Personalidades disponibles para el chat.
+  Future<List<PersonaInfo>> personas() async =>
+      _list(await _get('/personas'), 'personas').map(PersonaInfo.fromJson).toList();
+
+  /// Plan de este equipo (Community si no hay licencia).
+  Future<LicenseInfo> license() async => LicenseInfo.fromJson(await _get('/license'));
+
+  /// Activa una licencia firmada. No sale a internet.
+  Future<LicenseInfo> activateLicense(String text) async =>
+      LicenseInfo.fromJson(await _post('/license', {'text': text}));
+
+  /// Quita la licencia y vuelve a Community.
+  Future<LicenseInfo> deactivateLicense() async =>
+      LicenseInfo.fromJson(await _delete('/license'));
+
   Future<DaemonSettings> updateDaemonSettings(Map<String, dynamic> changes) async =>
       DaemonSettings.fromJson(await _put('/settings', changes));
 }

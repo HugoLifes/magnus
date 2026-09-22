@@ -62,6 +62,7 @@ from core.license import (
 )
 from core.messages import MessagesProxy, ProxyError
 from core.model_registry import MODEL_REGISTRY
+from core.persona import list_personas
 from core.platform import detect_platform
 from core.providers import PRESETS, Provider, ProviderError, ProviderKind, ProviderRegistry
 from core.rag import (
@@ -320,6 +321,12 @@ def _license_payload(lic: License) -> dict:
     }
 
 
+@api.get("/personas")
+def personas() -> dict:
+    """Personalidades disponibles para el chat (cómo habla Magnus)."""
+    return {"personas": list_personas()}
+
+
 @api.get("/license")
 def license_show(licenses: LicenseDep) -> dict:
     """Plan activo de este equipo. Sin licencia, Community."""
@@ -565,6 +572,8 @@ class ChatRequest(BaseModel):
     # Dónde correr el turno: None o "local" = este equipo; si no, el id de un
     # proveedor de /providers. Nunca se elige solo.
     provider: str | None = None
+    # Cómo habla Magnus en este turno. None: la de Ajustes (ver /personas).
+    persona: str | None = None
 
 
 def _stream_chat(service: ChatService, req: ChatRequest) -> Iterator[dict]:
@@ -572,7 +581,7 @@ def _stream_chat(service: ChatService, req: ChatRequest) -> Iterator[dict]:
         model=req.model, message=req.message, conversation_id=req.conversation_id,
         system=req.system, options=req.options, collection=req.collection,
         use_memory=req.use_memory, rag_k=req.rag_k, think=req.think,
-        provider=req.provider,
+        provider=req.provider, persona=req.persona,
     )
 
 

@@ -49,6 +49,10 @@ class Settings:
     # "auto" elige el modelo de nube de tamaño comparable al local.
     cloud_reference: str = "auto"
 
+    # --- Chat ---
+    # Cómo habla Magnus (ver core/persona.py). Se puede cambiar por conversación.
+    persona: str = "magnus"
+
     def to_dict(self) -> dict:
         data = asdict(self)
         data["api_token"] = "***" if self.api_token else None
@@ -60,6 +64,7 @@ _ENV_OVERRIDES = {
     "host": "MAGNUS_HOST",
     "port": "MAGNUS_PORT",
     "api_token": "MAGNUS_API_TOKEN",
+    "persona": "MAGNUS_PERSONA",
     "electricity_usd_per_kwh": "MAGNUS_ELECTRICITY_USD_PER_KWH",
 }
 

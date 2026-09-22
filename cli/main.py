@@ -46,6 +46,7 @@ from core import (
 from core.chat import ChatError, ChatService, OllamaChatClient
 from core.config import data_dir, load_settings
 from core.model_registry import MODEL_REGISTRY
+from core.persona import PERSONAS, get_persona
 from core.platform import detect_platform
 from core.store import Store
 from core.telemetry import sample_system
@@ -444,6 +445,8 @@ def chat(
                                    help="Responder con los documentos de esta colección."),
     use_memory: bool = typer.Option(None, "--memoria/--sin-memoria",
                                     help="Usar la memoria (por omisión: según el equipo)."),
+    persona: str = typer.Option(None, "--persona", "-p",
+                                help="Cómo habla: magnus, directo, mentor, compa, tecnico."),
 ) -> None:
     """Chatea con un modelo local. Cada respuesta cierra con el medidor de coste."""
     settings = load_settings()
@@ -457,7 +460,9 @@ def chat(
         skills=_skill_registry(),
         rag=_rag_store(),
     )
-    console.print(f"[green]Magnus[/green] · {model} · escribe /salir para terminar\n")
+    tono = get_persona(persona or settings.persona)
+    console.print(f"[green]Magnus[/green] · {model} · {tono.name.lower()} ({tono.tagline.lower()})"
+                  " · escribe /salir para terminar\n")
     conv_id = conversation
     try:
         while True:
@@ -472,7 +477,8 @@ def chat(
             try:
                 for event in service.stream(model=model, message=text,
                                             conversation_id=conv_id, system=system_prompt,
-                                            collection=collection, use_memory=use_memory):
+                                            collection=collection, use_memory=use_memory,
+                                            persona=persona):
                     if event["type"] == "start" and (event["skills"] or event["sources"]):
                         used = [f"/{s}" for s in event["skills"]]
                         used += [f"[{s['n']}] {s['title']}" for s in event["sources"]]
@@ -880,6 +886,22 @@ def token_rm() -> None:
 
     save_settings({"api_token": None})
     console.print("[green]✓ Token eliminado.[/green] Reinicia `magnus serve`.")
+
+
+@app.command("persona")
+def persona_list() -> None:
+    """Personalidades del chat: cómo habla Magnus."""
+    actual = load_settings().persona
+    table = Table(title="Personalidades")
+    table.add_column("id", style="bold")
+    table.add_column("Nombre")
+    table.add_column("Cómo habla")
+    for p in PERSONAS:
+        marca = " [green](en uso)[/green]" if p.id == actual else ""
+        table.add_row(p.id, p.name, p.tagline + marca)
+    console.print(table)
+    console.print("[dim]Cámbiala en Ajustes de la app, o por turno: "
+                  "magnus chat <modelo> --persona compa[/dim]")
 
 
 license_app = typer.Typer(help="Licencia de este equipo: plan, activación y emisión.")

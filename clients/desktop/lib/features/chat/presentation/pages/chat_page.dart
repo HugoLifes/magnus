@@ -324,14 +324,13 @@ class _Thread extends StatelessWidget {
         const SizedBox(height: 14),
         Expanded(
           child: state.messages.isEmpty
-              ? EmptyState(
-                  icon: state.models.isEmpty ? context.icons.download : context.icons.chats,
-                  title: state.models.isEmpty ? 'Descarga un modelo para empezar' : 'Empieza a chatear',
-                  message: state.models.isEmpty
-                      ? 'En Modelos → Para este equipo verás los que caben en tu hardware.'
-                      : 'Todo corre en tu máquina. Cada respuesta muestra cuánto costó en local '
-                          'y cuánto habría costado en la nube. Usa /resumir, /traducir… para las skills.',
-                )
+              ? (state.models.isEmpty
+                  ? EmptyState(
+                      icon: context.icons.download,
+                      title: 'Descarga un modelo para empezar',
+                      message: 'En Modelos → Para este equipo verás los que caben en tu hardware.',
+                    )
+                  : _Welcome(onPick: (texto) => context.read<ChatCubit>().send(texto)))
               : ListView.builder(
                   controller: scroll,
                   itemCount: state.messages.length,
@@ -555,6 +554,119 @@ class _Composer extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Bienvenida del chat: saluda y propone por dónde empezar.
+///
+/// Las sugerencias no son decorado: en un asistente local la primera pregunta
+/// suele ser «¿y esto qué sabe hacer?», y una lista corta responde mejor que un
+/// párrafo. Al tocar una, se envía tal cual.
+class _Welcome extends StatelessWidget {
+  const _Welcome({required this.onPick});
+
+  final ValueChanged<String> onPick;
+
+  static const _sugerencias = [
+    ('Explícame qué hace este equipo', 'Explícame en tres líneas qué puede hacer Magnus en mi equipo.'),
+    ('Ayúdame a escribir', 'Ayúdame a escribir un correo breve y claro para pedir una reunión.'),
+    ('Resume un texto', 'Te voy a pegar un texto y quiero un resumen en cinco viñetas.'),
+    ('Dame ideas', 'Dame cinco ideas para organizar mejor mi semana de trabajo.'),
+    ('Explícame un concepto', '¿Qué es la cuantización de un modelo y por qué me importa?'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MagnusTheme.of(context);
+    final hora = DateTime.now().hour;
+    final saludo = hora < 12 ? 'Buenos días' : (hora < 20 ? 'Buenas tardes' : 'Buenas noches');
+    return Center(
+      child: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 620),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ShaderMask(
+                shaderCallback: (rect) => t.brandGradient.createShader(rect),
+                child: Text(saludo, style: t.display.copyWith(color: const Color(0xFFFFFFFF))),
+              ),
+              const SizedBox(height: 6),
+              Text('¿En qué te echo una mano? Todo corre aquí, en tu equipo.',
+                  style: t.body.copyWith(color: t.textMuted)),
+              const SizedBox(height: 22),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final (etiqueta, prompt) in _sugerencias)
+                    _Suggestion(label: etiqueta, onTap: () => onPick(prompt)),
+                ],
+              ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Icon(context.icons.tip, size: 14, color: t.textFaint),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Escribe /resumir o /traducir para usar una skill, y cambia cómo te habla '
+                      'Magnus en Ajustes → Personalidad.',
+                      style: t.small.copyWith(color: t.textFaint),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Suggestion extends StatefulWidget {
+  const _Suggestion({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  State<_Suggestion> createState() => _SuggestionState();
+}
+
+class _SuggestionState extends State<_Suggestion> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MagnusTheme.of(context);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: _hover ? t.surfaceStrong : t.surfaceAlt,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: _hover ? t.accent : t.stroke),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(context.icons.sparkle, size: 14, color: t.accent),
+              const SizedBox(width: 8),
+              Text(widget.label, style: t.small.copyWith(color: t.text)),
+            ],
+          ),
+        ),
       ),
     );
   }

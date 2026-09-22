@@ -11,7 +11,9 @@ import '../../../../core/theme/magnus_theme.dart';
 import '../../../../shared/widgets/ui.dart';
 import '../cubit/settings_cubit.dart';
 import '../widgets/daemon_token_field.dart';
+import '../widgets/license_card.dart';
 import '../widgets/meter_settings_card.dart';
+import '../widgets/persona_card.dart';
 
 /// Ajustes: diseño nativo, apariencia (claro/oscuro) y URL del daemon.
 class SettingsPage extends StatefulWidget {
@@ -53,6 +55,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   title: 'Ajustes',
                   subtitle: 'Diseño, apariencia y conexión al daemon.',
                 ),
+                LicenseCard(key: ValueKey('licencia-${state.daemonUrl}')),
+                const SizedBox(height: 16),
 
                 // --- Diseño ---
                 GlassCard(
@@ -172,6 +176,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(height: 16),
 
                 // --- Tipografía ---
+                PersonaCard(key: ValueKey('persona-${state.daemonUrl}')),
+                const SizedBox(height: 16),
                 GlassCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

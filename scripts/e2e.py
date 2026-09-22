@@ -363,6 +363,39 @@ class E2E:
                     f"local ${u['local_cost_usd']:.6f} · nube ${u['cloud_cost_usd']:.6f} · "
                     f"ahorro ${u['savings_usd']:.6f}")
 
+    def personas(self, c: Check) -> None:
+        datos = self.get("/personas")["personas"]
+        expect(len(datos) >= 3, "hay menos personalidades de las esperadas")
+        ids = [p["id"] for p in datos]
+        expect("magnus" in ids, "falta la personalidad por omisión")
+        # La personalidad viaja en el prompt: el turno tiene que seguir saliendo bien.
+        eventos = self.ws_turn({"model": self.model, "message": "di solo: listo",
+                                "persona": "directo"})
+        expect(any(e["type"] == "done" for e in eventos), "el turno con personalidad no terminó")
+        c.detail = f"{len(datos)} personalidades · turno con 'directo' ok"
+
+    def license(self, c: Check) -> None:
+        body = self.get("/license")
+        plan = body["license"]["effective_plan"]
+        expect(plan in ("community", "pro", "team"), f"plan inesperado: {plan}")
+        expect(set(body["features"]) >= {"rag_pro", "code_autonomous"}, "faltan funciones del plan")
+        # Una licencia inventada no puede activarse: la firma no cuadra.
+        self.send("POST", "/license", {"text": "MAGNUS1.falsa.falsa"}, status=400)
+        c.detail = f"plan {plan} · una licencia falsa se rechaza"
+
+    def messages_api(self, c: Check) -> None:
+        """La API de Anthropic sobre el modelo local: lo que usa Claude Code."""
+        body = self.send("POST", "/v1/messages", {
+            "model": "claude-sonnet-4-5",  # un modelo de nube: Magnus lo traduce
+            "max_tokens": 64,
+            "messages": [{"role": "user", "content": "responde solo: ok"}],
+        })
+        expect(body.get("type") == "message", "la respuesta no tiene forma de mensaje")
+        usage = body.get("usage") or {}
+        expect(usage.get("output_tokens", 0) > 0, "no contó tokens de salida")
+        c.detail = (f"modelo traducido a {body.get('model')} · "
+                    f"{usage.get('input_tokens')}→{usage.get('output_tokens')} tok")
+
     def token_required(self, c: Check) -> None:
         r = httpx.get(f"{self.url}/platform", timeout=10)
         expect(r.status_code == 401, f"sin token debería dar 401 y dio {r.status_code}")
@@ -397,12 +430,15 @@ def main() -> int:
     e2e.run("plataforma (familia NVIDIA)", e2e.platform)
     e2e.run("telemetría en vivo", e2e.system)
     e2e.run("catálogo según la memoria", e2e.catalog)
+    e2e.run("personalidades del chat", e2e.personas)
+    e2e.run("licencia y plan", e2e.license)
     e2e.run(f"modelo {args.modelo} descargado", e2e.ensure_model(args.modelo))
     e2e.run("modelo de embeddings descargado", e2e.ensure_model("nomic-embed-text"))
     if e2e.agent_model != args.modelo:
         e2e.run(f"modelo {e2e.agent_model} descargado", e2e.ensure_model(e2e.agent_model))
     e2e.run("cargar modelo con guarda de memoria", e2e.load)
     e2e.run("chat por WebSocket (2 turnos)", e2e.chat_ws)
+    e2e.run("API de mensajes (Claude Code)", e2e.messages_api)
     e2e.run("razonamiento encendido/apagado", e2e.think)
     e2e.run("skills: crear, aplicar, borrar", e2e.skills)
     e2e.run("documentos (RAG) en el chat", e2e.rag)

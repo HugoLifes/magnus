@@ -90,7 +90,10 @@ def test_segundo_turno_lleva_el_historial(service_factory):
     list(svc.stream(model="m", message="Segundo", conversation_id=conv_id, system="Sé breve"))
 
     enviado = client.calls[-1]
-    assert enviado[0] == {"role": "system", "content": "Sé breve"}
+    # El system del usuario se apila debajo de la identidad de Magnus.
+    assert enviado[0]["role"] == "system"
+    assert enviado[0]["content"].endswith("Sé breve")
+    assert "Eres Magnus" in enviado[0]["content"]
     assert [x["content"] for x in enviado[1:]] == ["Primero", "Hola, soy Magnus.", "Segundo"]
 
 
@@ -118,20 +121,25 @@ def test_skill_por_invocacion_llega_como_system(service_factory, tmp_path):
     assert events[0]["skills"] == ["resumir"]
     enviado = client.calls[-1]
     assert enviado[0]["role"] == "system"
-    assert enviado[0]["content"].startswith("Sé breve") and "## Skill: resumir" in enviado[0]["content"]
+    contenido = enviado[0]["content"]
+    assert "Sé breve" in contenido and "## Skill: resumir" in contenido
+    assert contenido.index("Sé breve") < contenido.index("## Skill: resumir")
     assert enviado[-1] == {"role": "user", "content": "El texto largo"}  # sin "/resumir"
     # En la conversación queda tal como lo escribió el usuario.
     assert store.messages(events[-1]["conversation_id"])[0].content == "/resumir El texto largo"
 
 
-def test_sin_skills_que_apliquen_no_hay_system(service_factory, tmp_path):
+def test_sin_skills_el_system_es_solo_la_identidad(service_factory, tmp_path):
     from core.skills import SkillRegistry
 
     svc, client, _ = service_factory()
     svc._skills = SkillRegistry(tmp_path / "vacio")
     events = list(svc.stream(model="m", message="hola"))
     assert events[0]["skills"] == []
-    assert client.calls[-1][0]["role"] == "user"
+    system = client.calls[-1][0]
+    assert system["role"] == "system"
+    assert "Eres Magnus" in system["content"]
+    assert "Skill:" not in system["content"]
 
 
 def test_rag_inyecta_fragmentos_con_fuentes(service_factory, tmp_path):
@@ -178,7 +186,8 @@ def test_memoria_automatica_segun_el_equipo(service_factory, tmp_path):
     # Pregunta con varias palabras en común: el embedder falso es bolsa de palabras.
     pregunta = "¿el usuario trabaja con un jetson orin?"
     list(svc.stream(model="m", message=pregunta))
-    assert client.calls[-1][0]["role"] == "user"  # en Jetson no se usa sola
+    # En un Jetson la memoria no se usa sola: el system es solo identidad.
+    assert "Jetson Orin Nano" not in client.calls[-1][0]["content"].split("Sin internet")[-1]
 
     list(svc.stream(model="m", message=pregunta, use_memory=True))
     assert "Jetson Orin Nano" in client.calls[-1][0]["content"]
