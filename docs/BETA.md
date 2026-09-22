@@ -37,6 +37,9 @@ toda la familia NVIDIA:
 | Auth si se expone en red | ✅ | Token obligatorio fuera de loopback; `magnus token new` |
 | Cliente Flutter conectado | ✅ | Todas las secciones con la API real; probado contra el Jetson |
 | Instalador | 🟡 | Scripts por usuario (Windows, Linux) y `.msix` de la app firmado con certificado de prueba; falta certificado real |
+| Motor de Claude Code (`/v1/messages`) | ✅ | Proxy con medidor, guarda de memoria y elección de modelo; `magnus claude` |
+| Licencias firmadas (Ed25519) | ✅ | `/license`, `magnus license`; se validan sin internet, con 14 días de gracia |
+| Permisos de Magnus Code | 🟡 | Motor de reglas y clasificación de riesgo listos; faltan herramientas, terminal y sandbox |
 | Prueba e2e en vivo | ✅ | `scripts/e2e.py`: 19 ok en el Jetson Orin Nano (chat, RAG, agentes, cambios de modelo, concurrencia, token, persistencia) |
 | CI verde | ✅ | ruff limpio, 264 tests |
 | Contrato OpenAPI congelado | ✅ | `docs/api/openapi-v1.json`, versión `0.9.0b1` |

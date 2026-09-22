@@ -14,6 +14,8 @@ dependencies = [
     "pyyaml>=6.0",
     # Claves de proveedores en el llavero del sistema (con respaldo en archivo).
     "keyring>=25",
+    # Verificar la firma Ed25519 de las licencias sin internet (core/license.py).
+    "cryptography>=43",
 ]
 
 [project.optional-dependencies]

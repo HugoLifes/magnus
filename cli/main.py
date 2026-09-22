@@ -19,7 +19,10 @@ que el daemon y, después, los clientes Flutter reutilicen exactamente lo mismo.
 
 from __future__ import annotations
 
+import os
 import sys
+import time
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -877,6 +880,158 @@ def token_rm() -> None:
 
     save_settings({"api_token": None})
     console.print("[green]✓ Token eliminado.[/green] Reinicia `magnus serve`.")
+
+
+license_app = typer.Typer(help="Licencia de este equipo: plan, activación y emisión.")
+app.add_typer(license_app, name="license")
+
+
+def _license_store():
+    from core.config import data_dir
+    from core.license import LicenseStore
+
+    return LicenseStore(data_dir())
+
+
+@license_app.command("show")
+def license_show() -> None:
+    """Plan activo de este equipo. No sale a internet."""
+    from core.license import GRACE_DAYS, plan_allows
+
+    lic = _license_store().current()
+    plan = lic.effective_plan()
+    table = Table(title="Licencia", show_header=False)
+    table.add_column("Campo", style="bold")
+    table.add_column("Valor")
+    table.add_row("Plan", plan)
+    table.add_row("Titular", lic.holder or "—")
+    table.add_row("Estado", lic.status())
+    if lic.expires:
+        dias = lic.days_left()
+        vence = time.strftime("%Y-%m-%d", time.localtime(lic.expires))
+        table.add_row("Vence", f"{vence} ({dias} días)" if dias is not None else vence)
+        if lic.status() == "en gracia":
+            table.add_row("Gracia", f"{GRACE_DAYS} días desde el vencimiento")
+    else:
+        table.add_row("Vence", "no vence")
+    table.add_row("Equipos", str(lic.seats))
+    console.print(table)
+    if not plan_allows(plan, "pro"):
+        console.print("[dim]Community. Pro añade tus documentos con citas y el agente de "
+                      "código en modo autónomo.[/dim]")
+
+
+@license_app.command("activate")
+def license_activate(
+    origen: str = typer.Argument(..., help="Archivo de licencia, o el texto MAGNUS1...."),
+) -> None:
+    """Activa una licencia firmada. Funciona sin internet."""
+    from core.license import LicenseError
+
+    ruta = Path(origen)
+    texto = ruta.read_text(encoding="utf-8") if ruta.is_file() else origen
+    try:
+        lic = _license_store().activate(texto)
+    except (LicenseError, OSError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    console.print(f"[green]✓ Licencia activada:[/green] plan {lic.plan} para {lic.holder or 'ti'}.")
+
+
+@license_app.command("deactivate")
+def license_deactivate() -> None:
+    """Quita la licencia de este equipo y vuelve a Community."""
+    _license_store().deactivate()
+    console.print("[green]✓ Licencia quitada.[/green] Este equipo vuelve a Community.")
+
+
+@license_app.command("keygen")
+def license_keygen(
+    salida: Path = typer.Option(..., "--salida", help="Dónde guardar la clave PRIVADA."),
+) -> None:
+    """Crea el par de claves del emisor. La privada nunca va al repo ni a la app."""
+    from core.license import generate_keypair
+
+    if salida.exists():
+        console.print(f"[red]{salida} ya existe. No se sobrescribe una clave privada.[/red]")
+        raise typer.Exit(code=1)
+    private, public = generate_keypair()
+    salida.parent.mkdir(parents=True, exist_ok=True)
+    salida.write_text(private, encoding="utf-8")
+    console.print(f"[green]✓ Clave privada en {salida}[/green] — guárdala en el emisor, nunca aquí.")
+    console.print("Clave pública (va en core/license.py o en MAGNUS_LICENSE_PUBKEY):")
+    console.out(public, highlight=False)
+
+
+@license_app.command("issue")
+def license_issue(
+    clave: Path = typer.Option(..., "--clave", help="Archivo con la clave privada del emisor."),
+    titular: str = typer.Option(..., "--titular", help="Nombre o correo de quien compra."),
+    plan: str = typer.Option("pro", "--plan", help="community, pro o team."),
+    dias: int = typer.Option(365, "--dias", help="Vigencia en días. 0 = no vence."),
+    equipos: int = typer.Option(1, "--equipos", help="Equipos que cubre."),
+    salida: Path | None = typer.Option(None, "--salida", help="Archivo donde escribir la licencia."),
+) -> None:
+    """Emite una licencia firmada (ventas en persona y por integradores)."""
+    import secrets
+
+    from core.license import PLANS, sign_license
+
+    if plan not in PLANS:
+        console.print(f"[red]Plan inválido: {plan}. Válidos: {', '.join(PLANS)}.[/red]")
+        raise typer.Exit(code=1)
+    ahora = time.time()
+    payload = {
+        "id": f"MAG-{secrets.token_hex(4).upper()}",
+        "plan": plan,
+        "holder": titular,
+        "issued": round(ahora),
+        "expires": None if dias <= 0 else round(ahora + dias * 86400),
+        "seats": equipos,
+    }
+    texto = sign_license(payload, clave.read_text(encoding="utf-8").strip())
+    if salida:
+        salida.write_text(texto, encoding="utf-8")
+        console.print(f"[green]✓ Licencia {payload['id']} en {salida}[/green]")
+    else:
+        console.out(texto, highlight=False)
+
+
+@app.command("claude")
+def claude_code(
+    modelo: str | None = typer.Option(None, "--modelo", help="Modelo local; por omisión, el mejor para código."),
+    url: str = typer.Option("http://127.0.0.1:8420", "--url", help="Daemon de Magnus."),
+    solo_variables: bool = typer.Option(False, "--solo-variables", help="Solo imprime las variables."),
+) -> None:
+    """Abre Claude Code contra la GPU de este equipo, a través de Magnus.
+
+    Claude Code habla la API de mensajes de Anthropic; el daemon la expone en
+    `/v1/messages` y le pone medidor, guarda de memoria y elección de modelo.
+    """
+    import shutil
+    import subprocess
+
+    token = load_settings().api_token
+    entorno = {
+        "ANTHROPIC_BASE_URL": url.rstrip("/"),
+        "ANTHROPIC_AUTH_TOKEN": token or "magnus",
+        "ANTHROPIC_MODEL": modelo or "magnus-auto",
+        # Claude Code pide un contexto grande; los modelos locales rinden mejor
+        # sin razonamiento largo en tareas de herramientas.
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    }
+    if solo_variables or not shutil.which("claude"):
+        if not solo_variables:
+            console.print("[yellow]No encontré el comando `claude`.[/yellow] "
+                          "Instálalo y vuelve a intentar, o usa estas variables:")
+        for clave, valor in entorno.items():
+            console.out(f"{clave}={valor}", highlight=False)
+        return
+
+    console.print(f"[green]Claude Code contra tu GPU[/green] · daemon {url} · "
+                  f"modelo {entorno['ANTHROPIC_MODEL']}")
+    console.print("[dim]Cada turno queda en el medidor: `magnus usage`.[/dim]")
+    subprocess.run(["claude"], env={**os.environ, **entorno}, check=False)
 
 
 if __name__ == "__main__":

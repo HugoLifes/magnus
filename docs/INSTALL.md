@@ -100,6 +100,40 @@ Por seguridad el daemon solo escucha en `127.0.0.1`. Dos opciones:
   En la app pon la URL del servidor y el token. Sin token, `magnus serve --host 0.0.0.0`
   se niega a arrancar.
 
+## Usa Claude Code con tu GPU
+
+Claude Code, Codex CLI, OpenCode y Aider hablan la API de mensajes de Anthropic. Magnus la
+expone en `/v1/messages` sobre los modelos de este equipo, así que puedes programar con ellos
+sin pagar tokens:
+
+```bash
+magnus fetch qwen2.5-coder:7b   # o devstral:24b / qwen3-coder:30b si tienes 16–24 GB
+magnus serve                     # en otra terminal
+magnus claude                    # abre Claude Code apuntando a tu GPU
+```
+
+`magnus claude --solo-variables` imprime las variables por si prefieres ponerlas a mano en
+otra herramienta. Lo que aporta Magnus frente a apuntar el cliente directo a Ollama:
+
+- traduce el modelo que pide el cliente (`claude-sonnet-4-5`) al mejor modelo de código que
+  tengas descargado;
+- comprueba que quepa en memoria antes de cargarlo, y libera caché en memoria unificada;
+- mide cada turno: `magnus usage` incluye lo que programaste y cuánto habrías pagado en la nube.
+
+Para trabajar de verdad con agentes hacen falta **32K de contexto o más** y un modelo con
+herramientas en su plantilla; el catálogo marca cuáles. Detalle en
+[`MAGNUS_CODE.md`](MAGNUS_CODE.md).
+
+## Licencia de este equipo
+
+```bash
+magnus license show              # plan activo (Community si no hay licencia)
+magnus license activate licencia.txt
+```
+
+Las licencias son texto firmado: se verifican **sin internet** y siguen valiendo 14 días
+después de vencer, para que un cobro con retraso no apague la herramienta.
+
 ## Primeros pasos
 
 ```bash

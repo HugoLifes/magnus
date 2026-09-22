@@ -53,6 +53,14 @@ from core.agent import (
 from core.catalog import evictable_gib, recommend, usable_gib
 from core.chat import ChatError, ChatService, OllamaChatClient
 from core.config import Settings, data_dir, load_settings, save_settings
+from core.license import (
+    GRACE_DAYS,
+    License,
+    LicenseError,
+    LicenseStore,
+    plan_allows,
+)
+from core.messages import MessagesProxy, ProxyError
 from core.model_registry import MODEL_REGISTRY
 from core.platform import detect_platform
 from core.providers import PRESETS, Provider, ProviderError, ProviderKind, ProviderRegistry
@@ -145,6 +153,24 @@ def get_chat_service() -> ChatService:
 
 
 @lru_cache(maxsize=1)
+def get_license_store() -> LicenseStore:
+    return LicenseStore(data_dir())
+
+
+@lru_cache(maxsize=1)
+def get_messages_proxy() -> MessagesProxy:
+    settings = get_settings()
+    return MessagesProxy(
+        manager=get_runtime_manager(),
+        store=get_store(),
+        settings=settings,
+        platform=detect_platform(),
+        ollama_url=settings.ollama_url,
+        power_sampler=lambda: sample_system().power_w,
+    )
+
+
+@lru_cache(maxsize=1)
 def get_agent_registry() -> AgentRegistry:
     return AgentRegistry(data_dir() / "agents", BUILTIN_AGENTS_DIR)
 
@@ -165,6 +191,8 @@ def get_agent_runner() -> AgentRunner:
 
 
 StoreDep = Annotated[Store, Depends(get_store)]
+LicenseDep = Annotated[LicenseStore, Depends(get_license_store)]
+MessagesDep = Annotated[MessagesProxy, Depends(get_messages_proxy)]
 ManagerDep = Annotated[RuntimeManager, Depends(get_runtime_manager)]
 ChatDep = Annotated[ChatService, Depends(get_chat_service)]
 SkillsDep = Annotated[SkillRegistry, Depends(get_skill_registry)]
@@ -272,6 +300,81 @@ def health(manager: ManagerDep) -> dict:
         "ollama": ollama_version is not None,
         "ollama_version": ollama_version,
     }
+
+
+class LicenseRequest(BaseModel):
+    text: str
+
+
+def _license_payload(lic: License) -> dict:
+    """Lo que ve la app: la licencia y qué desbloquea."""
+    plan = lic.effective_plan()
+    return {
+        "license": lic.to_dict(),
+        "grace_days": GRACE_DAYS,
+        "features": {
+            "rag_pro": plan_allows(plan, "pro"),
+            "code_autonomous": plan_allows(plan, "pro"),
+            "team_audit": plan_allows(plan, "team"),
+        },
+    }
+
+
+@api.get("/license")
+def license_show(licenses: LicenseDep) -> dict:
+    """Plan activo de este equipo. Sin licencia, Community."""
+    return _license_payload(licenses.current())
+
+
+@api.post("/license")
+def license_activate(req: LicenseRequest, licenses: LicenseDep) -> dict:
+    """Activa una licencia firmada. No sale a internet."""
+    try:
+        return _license_payload(licenses.activate(req.text))
+    except LicenseError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@api.delete("/license")
+def license_deactivate(licenses: LicenseDep) -> dict:
+    """Quita la licencia de este equipo y vuelve a Community."""
+    licenses.deactivate()
+    return _license_payload(licenses.current())
+
+
+@api.post("/v1/messages")
+async def anthropic_messages(request: Request, proxy: MessagesDep):
+    """API de mensajes de Anthropic sobre los modelos de este equipo.
+
+    Es lo que hace que Claude Code, Codex CLI, OpenCode o Aider corran contra la
+    GPU local: eligen modelo de la nube, Magnus lo traduce al mejor modelo de
+    código descargado, vigila la memoria y mide el turno.
+    """
+    try:
+        body = await request.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="El cuerpo no es JSON.") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="El cuerpo debe ser un objeto JSON.")
+
+    try:
+        if body.get("stream"):
+            # El primer evento se pide aquí para que un fallo salga como error
+            # HTTP y no como un flujo a medias.
+            events = proxy.stream(body)
+            first = next(events)
+
+            def forward():
+                yield first
+                yield from events
+
+            return StreamingResponse(forward(), media_type="text/event-stream")
+        turn = proxy.complete(body)
+    except ProxyError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except StopIteration as exc:  # el runtime cerró sin mandar nada
+        raise HTTPException(status_code=502, detail="El runtime no respondió.") from exc
+    return JSONResponse(turn.payload)
 
 
 @api.get("/hardware")

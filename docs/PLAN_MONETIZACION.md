@@ -192,3 +192,101 @@ permiso explícito, una encuesta dentro de la app.
 | Magnus Code causa daños en la PC de un usuario | Modo autónomo solo con sandbox; lo destructivo siempre pregunta; puntos de control |
 | Los integradores no quieren software extra | Presentarlo como argumento de venta («esta PC trae IA lista»), con licencia incluida |
 | Claude Code deja de aceptar otros endpoints | Magnus Code propio como alternativa; Codex CLI y OpenCode también se conectan |
+
+---
+
+## 11. Revisión del 2026-09-21 (con datos de mercado y de la red)
+
+Esta sección no reemplaza el plan: ajusta lo que la investigación de septiembre deja distinto.
+Los detalles técnicos de Magnus Code pasan a [`MAGNUS_CODE.md`](MAGNUS_CODE.md).
+
+### 11.1 Dónde queda el precio de Pro [Publicado]
+
+| Herramienta | Precio 2026 | Nota |
+|---|---|---|
+| GitHub Copilot | $10 Pro · $39 Pro+ · $19 por persona Business · $60 Enterprise | Desde junio 2026 cobra además créditos de IA (1 crédito = $0.01) |
+| Cursor | $20 Pro · $60 Pro+ · $200 Ultra · $40 y $120 por asiento en equipos | El asiento de $120 es para uso intenso de agentes |
+| Claude Code | $17 al mes en plan anual, $20 mensual | Quien lo usa fuerte acaba en $100–200 al mes |
+| Cline, Aider, OpenCode, Goose, OpenHands | Gratis | Se paga el modelo: $20–150 al mes por persona, o $0 con Ollama |
+| LM Studio | Gratis local; de pago para uso comercial en equipo | Su API en la nube cobra por millón de tokens |
+| AnythingLLM | Gratis autohospedado; planes de pago en su nube | Competidor directo del RAG de Pro |
+
+**Conclusión: los $12 al mes siguen bien puestos**, pero el argumento no es «más barato que
+Copilot». Es **«no pagas tokens»**: frente a alguien que hoy gasta $20–150 al mes en API con
+Cline o Claude Code, Pro se paga solo el primer mes. Ese es el mensaje de la página y del
+video.
+
+### 11.2 Seis cambios al plan
+
+1. **Licencia perpetua como opción** [Decide Hugo]. Además de $12/mes y $119/año, ofrecer
+   **$149 una vez, con 12 meses de actualizaciones** y $59/año si quiere seguir
+   actualizando. Encaja con un producto que corre en la máquina del cliente, evita la
+   fricción de la suscripción en México y es lo que los integradores saben vender.
+2. **Pasarela: repartir por mercado** [Decide Hugo]. Con Stripe, el vendedor eres tú: tú
+   emites CFDI y tú respondes por los impuestos digitales de cada país donde vendas. Un
+   *merchant of record* (Paddle o Lemon Squeezy, 5 % + $0.50; Stripe Managed Payments, en
+   vista previa desde febrero de 2026) asume esa parte. Recomendación: **MoR para ventas
+   fuera de México** y **Mercado Pago o transferencia con CFDI para México**, que es donde
+   están los primeros clientes.
+3. **Certificado de firma: $9.99 al mes, no cientos al año.** Azure Trusted Signing (hoy
+   Azure Artifact Signing) cuesta $9.99 al mes en su nivel básico, hasta 5 000 firmas, y
+   emite certificados de corta vida desde una CA que Windows ya confía. Y desde 2024 un
+   certificado EV **ya no salta SmartScreen**, así que pagar EV no compra nada. Actualizar la
+   tabla de costos de §8.
+4. **La fase 1 cuesta menos de lo planeado.** Ollama habla la API de Anthropic desde la
+   versión 0.14, y en la PC de desarrollo (Ollama 0.34.1) el endpoint `/v1/messages` ya
+   responde [Verificado]. El endpoint de Magnus es un **proxy con medidor, guarda de memoria y
+   licencia**, no una implementación del protocolo. El tiempo que se ahorra ahí se va a
+   permisos y sandbox, que es lo que de verdad diferencia.
+5. **El riesgo legal del camino A queda aclarado.** Anthropic documenta `ANTHROPIC_BASE_URL`
+   para proveedores externos; lo que sancionó en enero de 2026 fue que ciertas herramientas
+   extrajeran el token OAuth de suscripciones de Claude Code. Regla interna: **Magnus nunca
+   toca credenciales de suscripción ni redistribuye el binario de Claude Code**; solo
+   configura variables de entorno en el equipo del usuario.
+6. **Magnus Cloud, todavía más atrás en la fila.** Ollama y LM Studio ya venden tokens de
+   modelos abiertos por su cuenta. La regla de §7 se mantiene y se endurece: no se lanza
+   **hasta que Pro esté vendiéndose** y se cumpla lo prepagado.
+
+### 11.3 Lo que no se puede vender como diferencia
+
+Un CLI de agente más. Gratis y con comunidad grande ya existen OpenCode, Cline, Aider, Goose
+(en la Linux Foundation desde abril de 2026) y OpenHands. La diferencia de Magnus, y lo que
+debe decir cada texto de venta, es:
+
+- **entiende el equipo** (no te deja cargar un modelo que no cabe, elige el que sí),
+- **mide** (energía real, ahorro frente a la nube, por tarea),
+- **pide permiso de verdad** y va a tener sandbox donde los demás no lo tienen bien (Windows),
+- **está en español y con app de escritorio**, no solo terminal.
+
+### 11.4 Riesgos añadidos
+
+| Riesgo | Mitigación |
+|---|---|
+| El RAG de pago compite con gratuitos (AnythingLLM, LM Studio) | Lo que ya dice §10: prueba de 14 días con los documentos del propio usuario y puntaje de evaluación visible |
+| Se depende de la compatibilidad de Ollama con Anthropic | El proxy de Magnus habla el protocolo por su cuenta si hace falta; el contrato ya está congelado en `docs/api/openapi-v1.json` |
+| Las fechas del plan asumen que la beta 0.9 ya salió | Si la beta se mueve, se mueve todo: revisar fechas al cerrar la beta |
+
+### 11.6 Estado al 2026-09-21
+
+De la fase 1 ya está hecho, probado y en el repo:
+
+- **Endpoint compatible con Anthropic** con medidor, guarda de memoria y elección de modelo
+  (`POST /v1/messages`), más `magnus claude` para abrir Claude Code contra la GPU local.
+- **Sistema de licencias** firmado con Ed25519 que se valida sin internet, con 14 días de
+  gracia: `magnus license show|activate|deactivate|keygen|issue` y `GET/POST/DELETE /license`.
+  La clave pública que va en el binario es **de desarrollo**: antes de vender hay que generar
+  el par definitivo con `magnus license keygen`, guardar la privada en el emisor y reemplazar
+  `DEV_PUBLIC_KEY_HEX`.
+- **Catálogo con los modelos de código de 2026** (Devstral 24B, gpt-oss 20B, Qwen3-Coder 30B).
+
+Queda de la fase 1: pantalla de Pro en la app, mover el RAG al módulo privado, el instalador
+firmado y la función sin servidor que emite licencias al cobrar.
+
+### 11.5 Fuentes de esta revisión
+
+- Precios de herramientas de IA para programar: <https://getdx.com/blog/ai-coding-assistant-pricing/> y <https://www.cloudzero.com/blog/ai-coding-tools-cost/>
+- Merchant of record y pasarelas: <https://fintechspecs.com/blog/stripe-vs-paddle-vs-lemon-squeezy-vs-polar-merchant-of-record-b2b-saas/>
+- Firma de código en Windows: <https://azure.microsoft.com/en-us/pricing/details/trusted-signing/> y <https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options>
+- Compatibilidad de Ollama con Anthropic: <https://docs.ollama.com/api/anthropic-compatibility>
+- Términos de Claude Code: <https://code.claude.com/docs/en/third-party-integrations>
+- Panorama de agentes de código abiertos: <https://www.openhands.dev/blog/open-source-ai-coding-agents>

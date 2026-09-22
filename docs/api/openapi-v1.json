@@ -245,6 +245,102 @@
         }
       }
     },
+    "/license": {
+      "get": {
+        "summary": "License Show",
+        "description": "Plan activo de este equipo. Sin licencia, Community.",
+        "operationId": "license_show_license_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response License Show License Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "License Activate",
+        "description": "Activa una licencia firmada. No sale a internet.",
+        "operationId": "license_activate_license_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LicenseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response License Activate License Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "License Deactivate",
+        "description": "Quita la licencia de este equipo y vuelve a Community.",
+        "operationId": "license_deactivate_license_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response License Deactivate License Delete"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/messages": {
+      "post": {
+        "summary": "Anthropic Messages",
+        "description": "API de mensajes de Anthropic sobre los modelos de este equipo.\n\nEs lo que hace que Claude Code, Codex CLI, OpenCode o Aider corran contra la\nGPU local: eligen modelo de la nube, Magnus lo traduce al mejor modelo de\ncódigo descargado, vigila la memoria y mide el turno.",
+        "operationId": "anthropic_messages_v1_messages_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/hardware": {
       "get": {
         "summary": "Hardware",
@@ -2216,6 +2312,19 @@
           "collection"
         ],
         "title": "IngestRequest"
+      },
+      "LicenseRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "LicenseRequest"
       },
       "LoadRequest": {
         "properties": {

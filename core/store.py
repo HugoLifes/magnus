@@ -32,6 +32,13 @@ CREATE TABLE IF NOT EXISTS messages (
     metrics         TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, id);
+CREATE TABLE IF NOT EXISTS turns (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    source      TEXT NOT NULL,
+    created_at  REAL NOT NULL,
+    metrics     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_turns_created ON turns(created_at);
 """
 
 _TITLE_CHARS = 60
@@ -151,15 +158,37 @@ class Store:
 
     # --- medidor ----------------------------------------------------------
 
+    def record_turn(self, source: str, metrics: dict) -> None:
+        """Registra un turno que no pertenece a una conversación.
+
+        Lo usa el proxy de `/v1/messages`: cuando alguien programa con Claude
+        Code contra esta GPU no hay conversación que guardar, pero el turno sí
+        cuenta para el medidor y para el ahorro acumulado.
+        """
+        with self._lock:
+            self._db.execute(
+                "INSERT INTO turns (source, created_at, metrics) VALUES (?, ?, ?)",
+                (source, time.time(), json.dumps(metrics, ensure_ascii=False)),
+            )
+            self._db.commit()
+
     def usage_summary(self, since: float | None = None) -> dict:
-        """Totales del medidor: tokens, energía, coste local, nube y ahorro."""
-        query = "SELECT metrics FROM messages WHERE metrics IS NOT NULL"
+        """Totales del medidor: tokens, energía, coste local, nube y ahorro.
+
+        Suma los turnos del chat (mensajes con medición) y los de `turns`, que
+        vienen del proxy de la API de mensajes.
+        """
+        queries = [
+            "SELECT metrics FROM messages WHERE metrics IS NOT NULL",
+            "SELECT metrics FROM turns",
+        ]
         params: tuple = ()
         if since is not None:
-            query += " AND created_at >= ?"
+            queries = [f"{q} AND created_at >= ?" if "WHERE" in q else f"{q} WHERE created_at >= ?"
+                       for q in queries]
             params = (since,)
         with self._lock:
-            rows = self._db.execute(query, params).fetchall()
+            rows = [row for q in queries for row in self._db.execute(q, params).fetchall()]
 
         totals = _empty_totals()
         by_model: dict[str, dict] = {}

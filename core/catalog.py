@@ -71,7 +71,8 @@ CATALOG: tuple[CatalogModel, ...] = (
        "Clásico de 8 B, gran ecosistema."),
     _m("llama3.3:70b", "Llama 3.3 70B", 70.6, 40.0, [CHAT, TOOLS], 131072,
        "Llama 3.3 Community", "Nivel frontera en local: 48 GB+ o DGX Spark."),
-    _m("gpt-oss:20b", "gpt-oss 20B", 20.9, 13.0, [CHAT, TOOLS, REASONING], 131072, "Apache-2.0",
+    _m("gpt-oss:20b", "gpt-oss 20B", 20.9, 13.0, [CHAT, CODE, TOOLS, REASONING], 131072,
+       "Apache-2.0",
        "Modelo abierto de OpenAI; razonamiento y herramientas en 16 GB."),
     _m("gpt-oss:120b", "gpt-oss 120B", 116.8, 60.5, [CHAT, TOOLS, REASONING], 131072,
        "Apache-2.0", "Para DGX Spark, RTX PRO 6000 o datacenter."),
@@ -97,6 +98,14 @@ CATALOG: tuple[CatalogModel, ...] = (
        "Asistente de código para 8 GB."),
     _m("qwen2.5-coder:32b", "Qwen2.5 Coder 32B", 32.8, 18.6, [CODE, TOOLS], 32768, "Apache-2.0",
        "Código de primer nivel en 24 GB."),
+    # --- Agentes de código (Magnus Code) ---
+    # Para trabajar en un proyecto no basta con escribir código: hay que llamar
+    # herramientas muchas veces seguidas y aguantar contextos largos. Estos son
+    # los que lo hacen bien en 2026; ver docs/MAGNUS_CODE.md §8.
+    _m("devstral:24b", "Devstral Small 24B", 23.6, 14.0, [CODE, TOOLS], 131072, "Apache-2.0",
+       "Hecho para agentes de código: ediciones en varios archivos. Pide 16 GB."),
+    _m("qwen3-coder:30b", "Qwen3-Coder 30B-A3B", 30.5, 19.0, [CODE, TOOLS], 262144, "Apache-2.0",
+       "Mezcla de expertos: 3 B activos, rápido, 256K de contexto. Pide 24 GB."),
     # --- Visión ---
     _m("gemma3:4b", "Gemma 3 4B", 4.3, 3.1, [CHAT, VISION], 131072, "Gemma",
        "Entiende imágenes con poca memoria."),
