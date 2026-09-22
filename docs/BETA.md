@@ -37,6 +37,8 @@ toda la familia NVIDIA:
 | Auth si se expone en red | ✅ | Token obligatorio fuera de loopback; `magnus token new` |
 | Cliente Flutter conectado | ✅ | Todas las secciones con la API real; probado contra el Jetson |
 | Instalador | 🟡 | Scripts por usuario (Windows, Linux) y `.msix` de la app firmado con certificado de prueba; falta certificado real |
+| Qué puede hacer cada equipo | ✅ | `/code/capability` y `magnus code`: nivel, modos disponibles y modelo recomendado con su descarga, o a dónde ir si no alcanza |
+| Respuestas con formato en el chat | ✅ | Markdown propio: títulos, listas, negritas y bloques de código con botón de copiar; 8 pruebas de widgets |
 | Personalidad del chat | ✅ | 5 formas de hablar; el prompt se acorta solo en modelos pequeños; `/personas`, Ajustes → Personalidad |
 | Pantalla de plan y licencia en la app | ✅ | Ajustes → Magnus Pro: activar licencia pegando el texto, sin internet |
 | Motor de Claude Code (`/v1/messages`) | ✅ | Proxy con medidor, guarda de memoria y elección de modelo; `magnus claude` |

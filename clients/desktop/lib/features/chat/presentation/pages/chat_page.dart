@@ -11,6 +11,7 @@ import '../../../../core/theme/brand.dart';
 import '../../../../core/theme/magnus_theme.dart';
 import '../../../../shared/format.dart';
 import '../../../../shared/widgets/forms.dart';
+import '../../../../shared/widgets/markdown.dart';
 import '../../../../shared/widgets/magnus_kit.dart';
 import '../../../../shared/widgets/ui.dart';
 import '../cubit/chat_cubit.dart';
@@ -386,10 +387,11 @@ class _Bubble extends StatelessWidget {
               child: msg.text.isEmpty && msg.streaming
                   ? Text(msg.thinking.isEmpty ? 'Cargando el modelo…' : 'Razonando…',
                       style: t.body.copyWith(color: t.textMuted))
-                  : SelectableText(
-                      msg.streaming ? '${msg.text}▍' : msg.text,
-                      style: t.body.copyWith(color: isUser ? t.onAccent : t.text),
-                    ),
+                  : isUser
+                      // Lo que escribe la persona se respeta tal cual: si pega
+                      // código o asteriscos, no se los reinterpreta nadie.
+                      ? SelectableText(msg.text, style: t.body.copyWith(color: t.onAccent))
+                      : MarkdownText(msg.streaming ? '${msg.text}▍' : msg.text),
             ),
             if (msg.error != null) ...[
               const SizedBox(height: 6),

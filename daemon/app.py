@@ -52,6 +52,7 @@ from core.agent import (
 )
 from core.catalog import evictable_gib, recommend, usable_gib
 from core.chat import ChatError, ChatService, OllamaChatClient
+from core.code.capability import capability_for, sandbox_available
 from core.config import Settings, data_dir, load_settings, save_settings
 from core.license import (
     GRACE_DAYS,
@@ -319,6 +320,23 @@ def _license_payload(lic: License) -> dict:
             "team_audit": plan_allows(plan, "team"),
         },
     }
+
+
+@api.get("/code/capability")
+def code_capability(manager: ManagerDep) -> dict:
+    """Qué puede hacer Magnus Code en este equipo y qué modelo conviene bajar.
+
+    Es lo que evita prometer lo que el hardware no da: cada clase de equipo ve
+    sus modos disponibles, el modelo recomendado con su tamaño de descarga y,
+    si no alcanza, qué hacer en su lugar.
+    """
+    gpus = detect_gpus()
+    return capability_for(
+        detect_platform(gpus),
+        gpus[0] if gpus else None,
+        local_models=tuple(manager.list_available()),
+        sandbox_available=sandbox_available(),
+    ).to_dict()
 
 
 @api.get("/personas")

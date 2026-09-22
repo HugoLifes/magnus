@@ -245,6 +245,48 @@
         }
       }
     },
+    "/code/capability": {
+      "get": {
+        "summary": "Code Capability",
+        "description": "Qué puede hacer Magnus Code en este equipo y qué modelo conviene bajar.\n\nEs lo que evita prometer lo que el hardware no da: cada clase de equipo ve\nsus modos disponibles, el modelo recomendado con su tamaño de descarga y,\nsi no alcanza, qué hacer en su lugar.",
+        "operationId": "code_capability_code_capability_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Code Capability Code Capability Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/personas": {
+      "get": {
+        "summary": "Personas",
+        "description": "Personalidades disponibles para el chat (cómo habla Magnus).",
+        "operationId": "personas_personas_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Personas Personas Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/license": {
       "get": {
         "summary": "License Show",
@@ -2187,6 +2229,17 @@
               }
             ],
             "title": "Provider"
+          },
+          "persona": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persona"
           }
         },
         "type": "object",

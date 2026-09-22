@@ -124,6 +124,17 @@ Para trabajar de verdad con agentes hacen falta **32K de contexto o más** y un 
 herramientas en su plantilla; el catálogo marca cuáles. Detalle en
 [`MAGNUS_CODE.md`](MAGNUS_CODE.md).
 
+## ¿Qué puede hacer este equipo?
+
+```bash
+magnus code
+```
+
+Dice el nivel del equipo, qué modos de Magnus Code admite y **qué modelo descargar
+con su tamaño**. Si no alcanza, propone usar otro equipo de tu red o Magnus Cloud
+en vez de dejarte a medias. En la app, lo mismo sale en Inicio, con un botón para
+descargar el modelo recomendado.
+
 ## Licencia de este equipo
 
 ```bash

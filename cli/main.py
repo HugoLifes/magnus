@@ -888,6 +888,36 @@ def token_rm() -> None:
     console.print("[green]✓ Token eliminado.[/green] Reinicia `magnus serve`.")
 
 
+@app.command("code")
+def code_capability() -> None:
+    """Qué puede hacer Magnus Code en este equipo (y qué modelo descargar)."""
+    from core.code.capability import capability_for, sandbox_available
+    from core.hardware import detect_gpus
+
+    gpus = detect_gpus()
+    settings = load_settings()
+    try:
+        locales = tuple(RuntimeManager(ollama_url=settings.ollama_url).list_available())
+    except Exception:  # noqa: BLE001 — sin Ollama igual se puede informar
+        locales = ()
+    cap = capability_for(detect_platform(gpus), gpus[0] if gpus else None,
+                         local_models=locales, sandbox_available=sandbox_available())
+
+    console.print(f"[green]{cap.headline}[/green]\n")
+    table = Table(title="Magnus Code en este equipo", show_header=False)
+    table.add_column("Campo", style="bold")
+    table.add_column("Valor")
+    table.add_row("Nivel", f"{cap.tier.value} · {cap.usable_gib} GiB utilizables")
+    table.add_row("Modos", ", ".join(m.value for m in cap.modes))
+    if cap.recommended:
+        estado = "descargado" if cap.downloaded else f"{cap.recommended.size_gib} GiB de descarga"
+        table.add_row("Modelo", f"{cap.recommended.name} ({cap.recommended.id}) · {estado}")
+        table.add_row("Contexto", f"{cap.recommended.context // 1024}K")
+    console.print(table)
+    for consejo in cap.advice:
+        console.print(f"[dim]· {consejo}[/dim]")
+
+
 @app.command("persona")
 def persona_list() -> None:
     """Personalidades del chat: cómo habla Magnus."""

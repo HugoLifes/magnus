@@ -247,6 +247,23 @@ Tres avisos que salen de la investigación:
 - **Cuidado con las variantes**: algunos GGUF de Qwen3.6 con archivos de visión no cargan en
   Ollama [Publicado]. Verificar cada etiqueta antes de meterla al catálogo.
 
+### Niveles por equipo [Implementado: `core/code/capability.py`, `GET /code/capability`]
+
+Magnus clasifica cada equipo y **dice lo que puede hacer, no lo que nos gustaría
+vender**. Sale de la memoria utilizable real y del catálogo, no de una tabla fija.
+
+| Nivel | Memoria utilizable | Modos | Qué se le dice a la persona |
+|---|---|---|---|
+| Equipo de borde | menos de 6 GiB | Plan, Preguntar | Lee y propone; para trabajar, un equipo de tu red o Magnus Cloud |
+| Equipo básico | 6–12 GiB | + Aceptar ediciones | Descarga este modelo (con su tamaño) y trabaja pidiendo permiso |
+| Equipo capaz | 12–24 GiB | + Autónomo con sandbox | Ya puede trabajar solo dentro del sandbox |
+| Equipo profesional | 24 GiB o más | Todos | Proyectos grandes y contexto largo |
+
+El modo autónomo pide además dos cosas que no se negocian: ~14 GiB utilizables y
+**sandbox disponible** (hoy Linux/Jetson con bubblewrap y macOS con Seatbelt; en
+Windows todavía no). Cuando algo falta, la respuesta nunca es «no se puede» a
+secas: dice qué falta y qué hacer en su lugar.
+
 **Por equipo** [Propuesta]: Jetson Orin Nano de 8 GiB → solo Plan y Preguntar con 7 B, o
 desviar al servidor de la red. RTX de 4–8 GiB (como la GTX 1650 de esta PC) → Plan y Preguntar
 con 7 B, y el aviso de que para tareas largas conviene otro equipo. 16 GiB → Devstral o
@@ -355,6 +372,9 @@ gratis; lo que corre solo con red de seguridad es de pago.**
 | Medidor de los turnos del proxy | `Store.record_turn`, tabla `turns` | idem y `tests/test_store.py` |
 | Licencias firmadas y sin internet | `core/license.py`, `/license`, `magnus license` | `tests/test_license.py` (16 casos) |
 | Permisos y riesgo de comandos | `core/code/permissions.py` | `tests/test_code_permissions.py` (58 casos) |
+| Herramientas: leer, listar, buscar, editar, escribir | `core/code/tools.py` | `tests/test_code_tools.py` (20 casos) |
+| Terminal con tiempo límite y árbol de procesos | `core/code/shell.py` | `tests/test_code_shell.py` (15 casos) |
+| Niveles por equipo y modelo recomendado | `core/code/capability.py`, `/code/capability`, `magnus code` | `tests/test_code_capability.py` (14 casos) |
 | Abrir Claude Code contra la GPU | `magnus claude` | a mano, en Windows |
 
 Lo siguiente, por orden: herramientas del agente (§3), terminal (§6) y sandbox de Linux (§5).

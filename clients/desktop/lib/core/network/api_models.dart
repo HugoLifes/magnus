@@ -573,6 +573,55 @@ class DaemonSettings {
       );
 }
 
+/// Qué puede hacer Magnus Code en este equipo.
+class CodeCapabilityInfo {
+  const CodeCapabilityInfo({
+    required this.tier,
+    required this.tierLabel,
+    required this.usableGib,
+    required this.modes,
+    required this.canAutonomous,
+    required this.headline,
+    required this.advice,
+    this.modelId,
+    this.modelName,
+    this.downloadGib,
+    this.contextTokens,
+    this.modelDownloaded = false,
+  });
+
+  final String tier;
+  final String tierLabel;
+  final double usableGib;
+  final List<String> modes;
+  final bool canAutonomous;
+  final String headline;
+  final List<String> advice;
+  final String? modelId;
+  final String? modelName;
+  final double? downloadGib;
+  final int? contextTokens;
+  final bool modelDownloaded;
+
+  factory CodeCapabilityInfo.fromJson(Map<String, dynamic> j) {
+    final m = (j['recommended_model'] as Map?)?.cast<String, dynamic>();
+    return CodeCapabilityInfo(
+      tier: _s(j['tier'], 'edge'),
+      tierLabel: _s(j['tier_label'], ''),
+      usableGib: _d(j['usable_gib']),
+      modes: ((j['modes'] as List?) ?? const []).map((e) => e.toString()).toList(),
+      canAutonomous: j['can_autonomous'] == true,
+      headline: _s(j['headline'], ''),
+      advice: ((j['advice'] as List?) ?? const []).map((e) => e.toString()).toList(),
+      modelId: m == null ? null : _s(m['id'], ''),
+      modelName: m == null ? null : _s(m['name'], ''),
+      downloadGib: m == null ? null : _d(m['download_gib']),
+      contextTokens: m == null ? null : (m['context'] as num?)?.toInt(),
+      modelDownloaded: m != null && m['downloaded'] == true,
+    );
+  }
+}
+
 /// Una forma de hablar del asistente.
 class PersonaInfo {
   const PersonaInfo({required this.id, required this.name, required this.tagline});

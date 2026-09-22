@@ -277,6 +277,10 @@ class MagnusApi {
 
   Future<DaemonSettings> daemonSettings() async => DaemonSettings.fromJson(await _get('/settings'));
 
+  /// Qué puede hacer Magnus Code en este equipo y qué modelo conviene.
+  Future<CodeCapabilityInfo> codeCapability() async =>
+      CodeCapabilityInfo.fromJson(await _get('/code/capability'));
+
   /// Personalidades disponibles para el chat.
   Future<List<PersonaInfo>> personas() async =>
       _list(await _get('/personas'), 'personas').map(PersonaInfo.fromJson).toList();

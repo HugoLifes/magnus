@@ -11,6 +11,7 @@ import '../../../../shared/widgets/ui.dart';
 import '../../domain/entities.dart';
 import '../bloc/models_bloc.dart';
 import '../cubit/overview_cubit.dart';
+import '../widgets/code_capability_card.dart';
 
 /// Vista de inicio: qué puede correr este equipo, cifras clave y hardware.
 class DashboardPage extends StatelessWidget {
@@ -73,18 +74,11 @@ class DashboardPage extends StatelessWidget {
                             ? 'se carga al chatear'
                             : loaded.map((m) => m.modelId).join(', '),
                       ),
-                      StatTile(
-                        icon: context.icons.savings,
-                        label: 'Ahorro vs nube',
-                        value: usage == null ? '—' : formatUsd(usage.savingsUsd),
-                        // El ámbar de la marca es solo para dinero.
-                        tone: Brand.amber,
-                        sub: usage == null
-                            ? null
-                            : '${usage.turns} respuestas · ${usage.tokensOut} tokens',
-                      ),
+                      _AhorroTile(usage: usage),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  const CodeCapabilityCard(),
                   const SizedBox(height: 26),
                   const SubHeading('GPUs detectadas', eyebrow: 'Hardware'),
                   switch (state.hardwareStatus) {
@@ -102,6 +96,42 @@ class DashboardPage extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+/// El ahorro acumulado, contado con honestidad.
+///
+/// Al principio suele ser **negativo**: amortizar el equipo durante medio minuto
+/// cuesta más que los pocos tokens que habría cobrado la nube. En vez de enseñar
+/// un número en rojo que parece un error, se dice qué está pasando; el ámbar de
+/// la marca se reserva para cuando de verdad hay ahorro.
+class _AhorroTile extends StatelessWidget {
+  const _AhorroTile({required this.usage});
+
+  final UsageSummary? usage;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MagnusTheme.of(context);
+    final u = usage;
+    if (u == null) {
+      return StatTile(
+        icon: context.icons.savings,
+        label: 'Ahorro vs nube',
+        value: '—',
+        tone: Brand.amber,
+      );
+    }
+    final ahorra = u.savingsUsd >= 0;
+    return StatTile(
+      icon: ahorra ? context.icons.savings : context.icons.activity,
+      label: ahorra ? 'Ahorro vs nube' : 'Todavía no compensa',
+      value: formatUsd(u.savingsUsd.abs()),
+      tone: ahorra ? Brand.amber : t.textMuted,
+      sub: ahorra
+          ? '${u.turns} respuestas · ${u.tokensOut} tokens'
+          : 'en turnos cortos pesa más amortizar el equipo',
     );
   }
 }

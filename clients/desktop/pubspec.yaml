@@ -47,6 +47,8 @@ dependencies:
   cupertino_icons: ^1.0.9         # iconos del tema Apple (SF/Cupertino)
 
 dev_dependencies:
+  flutter_test:
+    sdk: flutter              # pruebas de widgets (test/)
   flutter_lints: ^4.0.0
   msix: ^3.16.7               # (pedido) empaquetado .msix para distribuir en Windows
 
