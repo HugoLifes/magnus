@@ -108,6 +108,8 @@ class MagnusIcons {
       CupertinoIcons.arrow_up_right_square);
   IconData get chevronRight => _pick(FluentIcons.chevron_right_24_regular,
       Icons.chevron_right_rounded, CupertinoIcons.chevron_right);
+  IconData get chevronDown => _pick(FluentIcons.chevron_down_24_regular,
+      Icons.keyboard_arrow_down_rounded, CupertinoIcons.chevron_down);
   IconData get stepInto => _pick(FluentIcons.arrow_step_in_right_24_regular,
       Icons.subdirectory_arrow_right_rounded, CupertinoIcons.arrow_turn_down_right);
   IconData get eye =>

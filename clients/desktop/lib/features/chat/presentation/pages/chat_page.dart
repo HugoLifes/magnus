@@ -1,5 +1,16 @@
 import 'package:flutter/material.dart'
-    show Material, Colors, TextField, InputDecoration, InputBorder, SelectableText;
+    show
+        Colors,
+        InputBorder,
+        InputDecoration,
+        Material,
+        MaterialType,
+        PopupMenuButton,
+        PopupMenuItem,
+        PopupMenuPosition,
+        RoundedRectangleBorder,
+        SelectableText,
+        TextField;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -217,107 +228,10 @@ class _Thread extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = MagnusTheme.of(context);
     final cubit = context.read<ChatCubit>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        GlassCard(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text('Dónde', style: t.small),
-                  ChoiceChipX(
-                    label: 'Este equipo',
-                    icon: context.icons.gpu,
-                    selected: state.provider == null,
-                    onTap: () => cubit.selectProvider(null),
-                  ),
-                  for (final p in state.providers.where((p) => p.enabled))
-                    ChoiceChipX(
-                      label: p.name,
-                      icon: p.location == 'lan' ? context.icons.network : context.icons.cloud,
-                      selected: p.id == state.provider,
-                      onTap: () => cubit.selectProvider(p.id),
-                    ),
-                  if (state.providerLocation != 'local') ...[
-                    const SizedBox(width: 4),
-                    LocationChip(state.providerLocation),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Icon(context.icons.bolt, size: 16, color: state.model == null ? t.warn : t.ok),
-                  const SizedBox(width: 8),
-                  Text('Modelo', style: t.small),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          if (state.modelIds.isEmpty)
-                            Text(
-                                state.provider == null
-                                    ? 'sin modelos descargados'
-                                    : 'el proveedor no ofrece modelos',
-                                style: t.small.copyWith(color: t.warn)),
-                          for (final id in state.modelIds)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: ChoiceChipX(
-                                label: id,
-                                selected: id == state.model,
-                                onTap: () => cubit.selectModel(id),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Pill('${state.tokens} tokens', color: t.info, icon: context.icons.credits),
-                  const SizedBox(width: 8),
-                  Pill('${formatUsd(state.savings)} ahorro', color: Brand.amber, icon: context.icons.savings),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text('Documentos', style: t.small),
-                  ChoiceChipX(
-                    label: 'ninguno',
-                    selected: state.collection == null,
-                    onTap: () => cubit.selectCollection(null),
-                  ),
-                  for (final c in state.collections)
-                    ChoiceChipX(
-                      label: c.name,
-                      icon: context.icons.documents,
-                      selected: c.name == state.collection,
-                      onTap: () => cubit.selectCollection(c.name),
-                    ),
-                  const SizedBox(width: 12),
-                  Text('Razonar', style: t.small),
-                  ChoiceChipX(label: 'auto', selected: state.think == null, onTap: () => cubit.setThink(null)),
-                  ChoiceChipX(label: 'no', selected: state.think == false, onTap: () => cubit.setThink(false)),
-                  ChoiceChipX(label: 'sí', selected: state.think == true, onTap: () => cubit.setThink(true)),
-                ],
-              ),
-            ],
-          ),
-        ),
         if (state.error != null) ...[
           const SizedBox(height: 10),
           InlineNotice(state.error!, onClose: cubit.dismissError),
@@ -338,8 +252,8 @@ class _Thread extends StatelessWidget {
                   itemBuilder: (context, i) => _Bubble(state.messages[i]),
                 ),
         ),
-        const SizedBox(height: 14),
-        _Composer(input: input, onSend: onSend, enabled: !state.sending),
+        const SizedBox(height: 12),
+        _Composer(state: state, input: input, onSend: onSend),
       ],
     );
   }
@@ -500,72 +414,288 @@ class _MetricsLine extends StatelessWidget {
 }
 
 class _Composer extends StatelessWidget {
-  const _Composer({required this.input, required this.onSend, required this.enabled});
+  const _Composer({required this.state, required this.input, required this.onSend});
+
+  final ChatState state;
   final TextEditingController input;
   final VoidCallback onSend;
-  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final t = MagnusTheme.of(context);
+    final enabled = !state.sending;
     return GlassCard(
-      padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 8),
       strong: true,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            // Enter envía; Shift+Enter hace salto de línea.
-            child: Focus(
-              onKeyEvent: (node, event) {
-                if (event is KeyDownEvent &&
-                    event.logicalKey == LogicalKeyboardKey.enter &&
-                    !HardwareKeyboard.instance.isShiftPressed) {
-                  if (enabled) onSend();
-                  return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
-              },
-              child: TextField(
-                controller: input,
-                style: TextStyle(color: t.text, fontSize: 14),
-                minLines: 1,
-                maxLines: 6,
-                decoration: InputDecoration(
-                  isDense: true,
-                  border: InputBorder.none,
-                  hintText: enabled ? 'Escribe un mensaje a Magnus…' : 'Magnus está respondiendo…',
-                  hintStyle: TextStyle(color: t.textFaint),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                // Enter envía; Shift+Enter hace salto de línea.
+                child: Focus(
+                  onKeyEvent: (node, event) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.enter &&
+                        !HardwareKeyboard.instance.isShiftPressed) {
+                      if (enabled) onSend();
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: TextField(
+                    controller: input,
+                    style: TextStyle(color: t.text, fontSize: 14.5),
+                    minLines: 1,
+                    maxLines: 8,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      hintText:
+                          enabled ? 'Escribe un mensaje a Magnus…' : 'Magnus está respondiendo…',
+                      hintStyle: TextStyle(color: t.textFaint),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: enabled ? onSend : null,
-            child: Opacity(
-              opacity: enabled ? 1 : 0.45,
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: t.accent,
-                  borderRadius: BorderRadius.circular(t.radius),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: enabled ? onSend : null,
+                child: MouseRegion(
+                  cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+                  child: Opacity(
+                    opacity: enabled ? 1 : 0.45,
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        gradient: t.brandGradient,
+                        borderRadius: BorderRadius.circular(t.radius),
+                      ),
+                      child: Icon(context.icons.send, color: t.onAccent, size: 17),
+                    ),
+                  ),
                 ),
-                child: Icon(context.icons.send, color: t.onAccent, size: 18),
               ),
-            ),
+            ],
           ),
+          const SizedBox(height: 6),
+          _ComposerControls(state: state),
         ],
       ),
     );
   }
 }
 
-/// Bienvenida del chat: saluda y propone por dónde empezar.
+/// Los ajustes del turno, donde se escribe.
 ///
-/// Las sugerencias no son decorado: en un asistente local la primera pregunta
-/// suele ser «¿y esto qué sabe hacer?», y una lista corta responde mejor que un
-/// párrafo. Al tocar una, se envía tal cual.
+/// Antes vivían en una tarjeta arriba que se comía media pantalla para cosas
+/// que se tocan una vez por conversación. Aquí ocupan una línea y se abren solo
+/// cuando hacen falta, que es como funcionan los chats que la gente ya usa.
+class _ComposerControls extends StatelessWidget {
+  const _ComposerControls({required this.state});
+
+  final ChatState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MagnusTheme.of(context);
+    final cubit = context.read<ChatCubit>();
+    final remoto = state.providerLocation != 'local';
+    final donde = state.provider == null
+        ? 'Este equipo'
+        : state.providers
+            .firstWhere((p) => p.id == state.provider,
+                orElse: () => state.providers.first)
+            .name;
+
+    // Material transparente: los menús emergentes lo necesitan, y los tres
+    // shells (Fluent, Material y macOS) no siempre lo traen encima.
+    return Material(
+      type: MaterialType.transparency,
+      child: Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _MenuChip(
+                    label: state.model ?? 'sin modelo',
+                    icon: context.icons.models,
+                    tone: state.model == null ? t.warn : null,
+                    options: [
+                      for (final id in state.modelIds)
+                        _Option(id, id, selected: id == state.model),
+                    ],
+                    empty: state.provider == null
+                        ? 'Sin modelos descargados'
+                        : 'El proveedor no ofrece modelos',
+                    onSelected: cubit.selectModel,
+                  ),
+                  const SizedBox(width: 8),
+                  _MenuChip(
+                    label: donde,
+                    icon: remoto ? context.icons.cloud : context.icons.gpu,
+                    tone: remoto ? t.info : null,
+                    options: [
+                      _Option('', 'Este equipo', selected: state.provider == null),
+                      for (final p in state.providers.where((p) => p.enabled))
+                        _Option(p.id, p.name, selected: p.id == state.provider),
+                    ],
+                    onSelected: (id) => cubit.selectProvider(id.isEmpty ? null : id),
+                  ),
+                  const SizedBox(width: 8),
+                  _MenuChip(
+                    label: state.collection ?? 'Documentos',
+                    icon: context.icons.documents,
+                    tone: state.collection == null ? null : t.accent,
+                    options: [
+                      _Option('', 'Ninguno', selected: state.collection == null),
+                      for (final c in state.collections)
+                        _Option(c.name, c.name, selected: c.name == state.collection),
+                    ],
+                    empty: 'Todavía no tienes colecciones',
+                    onSelected: (name) => cubit.selectCollection(name.isEmpty ? null : name),
+                  ),
+                  const SizedBox(width: 8),
+                  _MenuChip(
+                    label: switch (state.think) {
+                      true => 'Razona',
+                      false => 'Sin razonar',
+                      _ => 'Razonar: auto',
+                    },
+                    icon: context.icons.brain,
+                    options: [
+                      _Option('auto', 'Auto (lo decide el modelo)', selected: state.think == null),
+                      _Option('si', 'Razonar siempre', selected: state.think == true),
+                      _Option('no', 'No razonar', selected: state.think == false),
+                    ],
+                    onSelected: (v) =>
+                        cubit.setThink(v == 'auto' ? null : v == 'si'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // El medidor, en pequeño: informa sin robar atención.
+          if (state.tokens > 0) ...[
+            const SizedBox(width: 10),
+            Text('${state.tokens} tok', style: t.small.copyWith(color: t.textFaint)),
+            const SizedBox(width: 8),
+            Text(
+              state.savings >= 0
+                  ? '${formatUsd(state.savings)} ahorro'
+                  : '${formatUsd(-state.savings)} de más',
+              style: t.small.copyWith(
+                  color: state.savings >= 0 ? Brand.amber : t.textFaint),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Una opción de un menú del compositor.
+class _Option {
+  const _Option(this.value, this.label, {this.selected = false});
+  final String value;
+  final String label;
+  final bool selected;
+}
+
+/// Chip que abre un menú: el patrón de los chats modernos, sin barra fija.
+class _MenuChip extends StatelessWidget {
+  const _MenuChip({
+    required this.label,
+    required this.icon,
+    required this.options,
+    required this.onSelected,
+    this.tone,
+    this.empty,
+  });
+
+  final String label;
+  final IconData icon;
+  final List<_Option> options;
+  final ValueChanged<String> onSelected;
+  final Color? tone;
+  final String? empty;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MagnusTheme.of(context);
+    final color = tone ?? t.textMuted;
+    final vacio = options.where((o) => o.value.isNotEmpty).isEmpty && empty != null;
+    return PopupMenuButton<String>(
+      tooltip: '',
+      position: PopupMenuPosition.over,
+      color: t.bgElevated,
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(t.radius),
+        side: BorderSide(color: t.stroke),
+      ),
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        if (vacio)
+          PopupMenuItem<String>(
+            enabled: false,
+            child: Text(empty!, style: t.small),
+          )
+        else
+          for (final o in options)
+            PopupMenuItem<String>(
+              value: o.value,
+              height: 38,
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 14,
+                    child: o.selected
+                        ? Icon(context.icons.check, size: 14, color: t.accent)
+                        : null,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(o.label,
+                      style: t.body.copyWith(
+                          fontSize: 13,
+                          fontWeight: o.selected ? FontWeight.w600 : FontWeight.w400)),
+                ],
+              ),
+            ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: t.surfaceAlt,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: t.stroke),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 190),
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: t.small.copyWith(color: t.text, fontSize: 12)),
+            ),
+            const SizedBox(width: 4),
+            Icon(context.icons.chevronDown, size: 12, color: t.textFaint),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _Welcome extends StatelessWidget {
   const _Welcome({required this.onPick});
 
