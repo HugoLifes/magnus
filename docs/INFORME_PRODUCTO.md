@@ -918,6 +918,8 @@ autorizado.
 4. Afiliados en el momento justo.
 5. Magnus Cloud cuando haya demanda, con GPUs rentadas y pagadas por lo prepagado.
 
+**Plan ejecutable con fases, fechas y responsables:** [`PLAN_MONETIZACION.md`](PLAN_MONETIZACION.md).
+
 ---
 
 ## 12. Fuentes
