@@ -10,13 +10,19 @@ on:
 
 jobs:
   nucleo:
-    name: Núcleo, daemon y CLI
+    name: Núcleo, daemon y CLI (Python ${{ matrix.python }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # El proyecto declara >=3.10 y hay equipos con la que trae su distro:
+        # si una versión del rango se rompe, mejor enterarse aquí.
+        python: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python }}
       - name: Instalar
         run: |
           python -m pip install --upgrade pip
