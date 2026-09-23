@@ -52,6 +52,10 @@ class _ChatPageState extends State<ChatPage> {
     super.dispose();
   }
 
+  /// El historial se puede esconder: en una conversación larga, la pantalla
+  /// entera para el hilo se agradece.
+  bool _historial = true;
+
   void _send() {
     final text = _input.text;
     if (text.trim().isEmpty) return;
@@ -80,12 +84,19 @@ class _ChatPageState extends State<ChatPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (!compact) ...[
+              if (!compact && _historial) ...[
                 SizedBox(width: 248, child: _History(state: state)),
                 const SizedBox(width: 18),
               ],
               Expanded(
-                child: _Thread(state: state, scroll: _scroll, input: _input, onSend: _send),
+                child: _Thread(
+                  state: state,
+                  scroll: _scroll,
+                  input: _input,
+                  onSend: _send,
+                  historial: compact ? null : _historial,
+                  onHistorial: () => setState(() => _historial = !_historial),
+                ),
               ),
             ],
           ),
@@ -220,11 +231,17 @@ class _Thread extends StatelessWidget {
     required this.scroll,
     required this.input,
     required this.onSend,
+    required this.historial,
+    required this.onHistorial,
   });
   final ChatState state;
   final ScrollController scroll;
   final TextEditingController input;
   final VoidCallback onSend;
+
+  /// Si el historial está abierto; null en pantallas estrechas, donde no cabe.
+  final bool? historial;
+  final VoidCallback onHistorial;
 
   @override
   Widget build(BuildContext context) {
@@ -232,6 +249,15 @@ class _Thread extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (historial != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _GhostButton(
+              icon: historial! ? context.icons.panelCollapse : context.icons.panelExpand,
+              label: historial! ? 'Ocultar conversaciones' : 'Conversaciones',
+              onTap: onHistorial,
+            ),
+          ),
         if (state.error != null) ...[
           const SizedBox(height: 10),
           InlineNotice(state.error!, onClose: cubit.dismissError),
@@ -690,6 +716,51 @@ class _MenuChip extends StatelessWidget {
             const SizedBox(width: 4),
             Icon(context.icons.chevronDown, size: 12, color: t.textFaint),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Botón de texto, sin fondo hasta que pasas por encima.
+class _GhostButton extends StatefulWidget {
+  const _GhostButton({required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  State<_GhostButton> createState() => _GhostButtonState();
+}
+
+class _GhostButtonState extends State<_GhostButton> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MagnusTheme.of(context);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: _hover ? t.stateLayer() : const Color(0x00000000),
+            borderRadius: BorderRadius.circular(t.radiusSm),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, size: 15, color: t.textMuted),
+              const SizedBox(width: 8),
+              Text(widget.label, style: t.small.copyWith(color: t.textMuted)),
+            ],
+          ),
         ),
       ),
     );

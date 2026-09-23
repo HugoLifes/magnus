@@ -79,10 +79,11 @@ from core.security import PUBLIC_PATHS, token_ok
 from core.skills import BUILTIN_SKILLS_DIR, SkillError, SkillRegistry, build_skill
 from core.store import Store
 from core.telemetry import sample_system
+from core.version import __version__
 
 api = FastAPI(
     title="Magnus daemon",
-    version="0.9.0b1",
+    version=__version__,
     description="API local. Contrato único para CLI y clientes Flutter.",
 )
 
@@ -298,7 +299,7 @@ def health(manager: ManagerDep) -> dict:
     return {
         "status": "ok",
         "service": "magnus",
-        "version": "0.9.0b1",
+        "version": __version__,
         "ollama": ollama_version is not None,
         "ollama_version": ollama_version,
     }

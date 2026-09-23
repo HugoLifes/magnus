@@ -7,6 +7,7 @@ import '../../../../core/theme/icons.dart';
 import '../../../../core/theme/magnus_theme.dart';
 import '../../../../shared/format.dart';
 import '../../../../shared/widgets/magnus_kit.dart';
+import '../../../../shared/widgets/skeleton.dart';
 import '../../../../shared/widgets/ui.dart';
 import '../../domain/entities.dart';
 import '../bloc/models_bloc.dart';
@@ -319,8 +320,16 @@ class _Loading extends StatelessWidget {
   const _Loading();
   @override
   Widget build(BuildContext context) {
-    final t = MagnusTheme.of(context);
-    return GlassCard(child: Text('Cargando hardware…', style: t.small));
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Skeleton(width: 180, height: 16),
+          const SizedBox(height: 12),
+          Skeleton.lines(2, width: 320),
+        ],
+      ),
+    );
   }
 }
 

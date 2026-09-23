@@ -6,6 +6,7 @@ import '../../../../core/network/api_models.dart';
 import '../../../../core/network/magnus_api.dart';
 import '../../../../core/theme/icons.dart';
 import '../../../../core/theme/magnus_theme.dart';
+import '../../../../shared/widgets/skeleton.dart';
 import '../../../../shared/widgets/ui.dart';
 
 /// Cómo habla Magnus en el chat.
@@ -78,7 +79,11 @@ class _PersonaCardState extends State<PersonaCard> {
           if (_error != null)
             Text(_error!, style: t.small.copyWith(color: t.bad))
           else if (!_loaded)
-            Text('Cargando…', style: t.small)
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [for (var i = 0; i < 3; i++) const Skeleton(width: 176, height: 58, radius: 12)],
+            )
           else
             Wrap(
               spacing: 10,

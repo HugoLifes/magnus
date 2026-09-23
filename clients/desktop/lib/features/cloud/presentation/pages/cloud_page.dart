@@ -9,6 +9,7 @@ import '../../../../core/theme/brand.dart';
 import '../../../../core/theme/magnus_theme.dart';
 import '../../../../shared/widgets/forms.dart';
 import '../../../../shared/widgets/magnus_kit.dart';
+import '../../../../shared/widgets/skeleton.dart';
 import '../../../../shared/widgets/ui.dart';
 import '../cubit/cloud_cubit.dart';
 
@@ -345,7 +346,7 @@ class _CloudWalletState extends State<_CloudWallet> {
 
     final packs = state.packs.isEmpty
         ? GlassCard(
-            child: Text('Cargando paquetes…', style: t.small),
+            child: Skeleton.lines(2, width: 320),
           )
         : Wrap(
             spacing: 14,
@@ -474,7 +475,7 @@ class _KeyProviders extends StatelessWidget {
   Widget build(BuildContext context) {
     final presets = [for (final k in _kinds) state.preset(k)].whereType<ProviderPreset>().toList();
     if (presets.isEmpty) {
-      return GlassCard(child: Text('Cargando proveedores…', style: MagnusTheme.of(context).small));
+      return GlassCard(child: Skeleton.lines(2, width: 360));
     }
     return LayoutBuilder(builder: (context, c) {
       final columns = c.maxWidth > 1000 ? 3 : (c.maxWidth > 640 ? 2 : 1);

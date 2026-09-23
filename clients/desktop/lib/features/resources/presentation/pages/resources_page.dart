@@ -10,6 +10,7 @@ import '../../../../core/network/api_models.dart';
 import '../../../../core/theme/magnus_theme.dart';
 import '../../../../shared/format.dart';
 import '../../../../shared/widgets/forms.dart';
+import '../../../../shared/widgets/skeleton.dart';
 import '../../../../shared/widgets/ui.dart';
 import '../cubit/system_cubit.dart';
 
@@ -63,7 +64,18 @@ class _ResourcesView extends StatelessWidget {
               if (platform != null) _PlatformCard(platform),
               const SizedBox(height: 14),
               if (sample == null)
-                GlassCard(child: Text('Leyendo sensores…', style: t.small))
+                GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Skeleton(width: 220, height: 16),
+                      const SizedBox(height: 14),
+                      const Skeleton(height: 8, radius: 4),
+                      const SizedBox(height: 10),
+                      Skeleton.lines(2, width: 300),
+                    ],
+                  ),
+                )
               else ...[
                 TileGrid(
                   minTileWidth: 300,

@@ -8,6 +8,7 @@ import '../../../../core/network/api_models.dart';
 import '../../../../core/theme/magnus_theme.dart';
 import '../../../../shared/format.dart';
 import '../../../../shared/widgets/forms.dart';
+import '../../../../shared/widgets/skeleton.dart';
 import '../../../../shared/widgets/ui.dart';
 import '../cubit/catalog_cubit.dart';
 
@@ -105,7 +106,11 @@ class _CatalogViewState extends State<CatalogView> {
             Text('Ordenados del más capaz al menor entre los que caben.', style: t.small),
             const SizedBox(height: 12),
             if (catalog == null)
-              GlassCard(child: Text(state.loading ? 'Cargando catálogo…' : 'Sin catálogo.', style: t.small))
+              GlassCard(
+                child: state.loading
+                    ? Skeleton.lines(3, width: 420)
+                    : Text('Sin catálogo.', style: t.small),
+              )
             else
               TileGrid(
                 minTileWidth: 290,

@@ -6,6 +6,7 @@ import '../../../../core/network/api_models.dart';
 import '../../../../core/network/magnus_api.dart';
 import '../../../../core/theme/icons.dart';
 import '../../../../core/theme/magnus_theme.dart';
+import '../../../../shared/widgets/skeleton.dart';
 import '../../../../shared/widgets/ui.dart';
 
 /// Qué puede hacer Magnus Code en este equipo, sin prometer de más.
@@ -95,7 +96,7 @@ class _CodeCapabilityCardState extends State<CodeCapabilityCard> {
           if (_error != null)
             Text(_error!, style: t.small.copyWith(color: t.bad))
           else if (cap == null)
-            Text('Viendo qué puede hacer este equipo…', style: t.small)
+            Skeleton.lines(2, width: 420)
           else ...[
             Text(cap.headline, style: t.body),
             const SizedBox(height: 12),

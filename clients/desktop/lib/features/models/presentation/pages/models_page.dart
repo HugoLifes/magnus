@@ -6,6 +6,7 @@ import '../../../../core/constants.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/magnus_theme.dart';
 import '../../../../shared/widgets/forms.dart';
+import '../../../../shared/widgets/skeleton.dart';
 import '../../../../shared/widgets/ui.dart';
 import '../bloc/models_bloc.dart';
 import '../widgets/catalog_view.dart';
@@ -97,7 +98,7 @@ class _MasterList extends StatelessWidget {
       builder: (context, state) {
         if (state.modelsStatus == Status.loading ||
             state.modelsStatus == Status.initial) {
-          return GlassCard(child: Text('Cargando modelos…', style: t.small));
+          return GlassCard(child: Skeleton.lines(3, width: 380));
         }
         if (state.modelsStatus == Status.failure) {
           return GlassCard(
