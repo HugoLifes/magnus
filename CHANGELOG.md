@@ -5,6 +5,10 @@ versiones en [`docs/GIT.md`](docs/GIT.md).
 
 ## Sin publicar (`pre-prod`)
 
+Nada por ahora.
+
+## 0.9.0-beta.1 — 2026-09-23
+
 ### Nuevo
 
 - **Magnus como motor de Claude Code**: el daemon habla la API de mensajes de
