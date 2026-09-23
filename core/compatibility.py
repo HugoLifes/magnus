@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from core.hardware import GPU
 from core.model_registry import ModelSpec
 from core.runtimes import Runtime, runtimes_for_quant
 
@@ -131,6 +132,72 @@ def check_fit(
         headroom_gib=round(headroom, 1),
         runtimes=runtimes_for_quant(quant),
         notes=notes,
+    )
+
+
+def ollama_required_gib(download_size_gib: float) -> float:
+    """Memoria que ocupa un modelo de Ollama cargado, a partir de su descarga.
+
+    El archivo GGUF ya viene cuantizado, así que los pesos ≈ el tamaño del
+    archivo; encima van el grafo de cómputo y la KV cache del contexto por
+    defecto (2–4 k tokens). Medido en el Jetson: qwen2.5:1.5b pesa 0.92 GiB y
+    Ollama reservó 1.74 GiB (pesos 935 MiB + grafo 482 MiB + KV 56 MiB + CUDA).
+    Con 1.2× + 0.7 GiB da 1.8.
+    """
+    return round(download_size_gib * 1.2 + 0.7, 1)
+
+
+# En memoria unificada, además de lo que estima Ollama, la carga necesita el
+# contexto CUDA y las páginas que el kernel se reserva. Medido en el Jetson: con
+# ~2.1 GiB libres para una carga estimada en 1.9 GiB entraron los pesos (935 MiB)
+# y falló el búfer de cómputo (300 MiB).
+UNIFIED_CUDA_HEADROOM_GIB = 0.6
+
+
+def load_memory_verdict(
+    download_size_gib: float | None, gpu: GPU | None
+) -> tuple[bool, str | None]:
+    """¿Se puede cargar sin riesgo? (permitido, aviso).
+
+    - Memoria unificada (Jetson, Spark, laptops N1X): si no cabe en la memoria
+      LIBRE se niega, porque el sistema entero se queda sin RAM y se cuelga.
+    - GPU dedicada: se permite siempre — Ollama manda las capas que no caben a
+      la CPU —, pero se avisa de que irá mucho más lento.
+    """
+    if download_size_gib is None or gpu is None:
+        return True, None
+    needed = ollama_required_gib(download_size_gib)
+    if gpu.unified_memory:
+        with_cuda = round(needed + UNIFIED_CUDA_HEADROOM_GIB, 1)
+        if with_cuda > gpu.free_gib:
+            return False, (
+                f"No hay memoria libre suficiente: el modelo necesita ~{with_cuda} GiB con CUDA "
+                f"y hay {gpu.free_gib} GiB libres. Con memoria unificada cargarlo puede colgar "
+                "el equipo. Cierra aplicaciones o elige un modelo más pequeño (magnus catalog)."
+            )
+        return True, None
+    if needed > gpu.total_gib:
+        return True, (
+            f"El modelo (~{needed} GiB) no cabe entero en la VRAM ({gpu.total_gib} GiB): "
+            "Ollama pondrá capas en la CPU y responderá mucho más lento."
+        )
+    return True, None
+
+
+def unified_memory_note(res: CompatibilityResult, free_gib: float) -> str | None:
+    """Aviso cuando el destino tiene memoria unificada (Jetson, DGX Spark).
+
+    Ahí `available_gib` es la RAM total, pero la comparten el SO y los demás
+    procesos. Medido en un Orin Nano con otro contenedor corriendo: 7.4 GiB
+    totales y solo 2.8 GiB libres — un llama-3.1-8b q4 (6.1 GiB) "entra" sobre
+    el total y colgaría el equipo entero al cargarlo.
+    """
+    if res.required_gib <= free_gib:
+        return None
+    return (
+        f"Memoria unificada: el modelo necesita {res.required_gib} GiB y ahora hay "
+        f"{free_gib} GiB libres (el resto lo usan el SO y otros procesos). "
+        "Cargarlo puede colgar el equipo."
     )
 
 

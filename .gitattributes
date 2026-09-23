@@ -1,0 +1,7 @@
+# Los scripts de shell deben llegar a Linux/Jetson con LF: con CRLF (lo que
+# produce core.autocrlf en Windows) bash falla con "$'\r': command not found".
+*.sh text eol=lf
+Dockerfile* text eol=lf
+*.yml text eol=lf
+# PowerShell funciona con ambos; se fija CRLF por coherencia en Windows.
+*.ps1 text eol=crlf

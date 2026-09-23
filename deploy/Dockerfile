@@ -10,7 +10,8 @@
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
 
 ENV PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    MAGNUS_HOME=/app/data
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 python3-pip python3-venv \
@@ -23,6 +24,9 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY core ./core
 COPY daemon ./daemon
 COPY cli ./cli
+COPY skills ./skills
+COPY agents ./agents
+COPY scripts ./scripts
 
 EXPOSE 8420
 # Escucha en 0.0.0.0 dentro del contenedor; expón el puerto con cuidado (ver compose).

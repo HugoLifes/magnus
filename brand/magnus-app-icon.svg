@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Magnus">
+  <!-- Icono de app: monograma sobre tinta nocturna. Radio 56 (≈22 %), válido
+       para Windows (Fluent) y como fuente del adaptive icon de Material. -->
+  <rect width="256" height="256" rx="56" fill="#0E0B1A"/>
+  <g transform="translate(40 40) scale(2.75)">
+    <rect x="4"  y="8"  width="8" height="48" rx="2" fill="#8B7BFF"/>
+    <rect x="16" y="22" width="8" height="34" rx="2" fill="#8B7BFF"/>
+    <rect x="28" y="36" width="8" height="20" rx="2" fill="#F2B441"/>
+    <rect x="40" y="22" width="8" height="34" rx="2" fill="#8B7BFF"/>
+    <rect x="52" y="8"  width="8" height="48" rx="2" fill="#8B7BFF"/>
+  </g>
+</svg>

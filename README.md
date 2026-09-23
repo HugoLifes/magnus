@@ -1,9 +1,14 @@
 # Magnus
 
 > **SO de agentes _local-first_ sobre hardware NVIDIA.**
-> El cerebro (núcleo + daemon) vive en el servidor con GPU y se programa en Python.
-> La cara (CLI hoy; apps Flutter de escritorio y móvil después) habla con él por una
+> El cerebro (núcleo + daemon) vive donde está la GPU y se programa en Python.
+> La cara (CLI y app de escritorio Flutter; móvil después) habla con él por una
 > única API local. Los datos del usuario nunca salen de su máquina — ese es el producto.
+
+**Estado: beta `0.9.0b1`.** Chat con medidor de coste, modelos según tu hardware, skills,
+documentos (RAG local), memoria y agentes con herramientas, en toda la familia NVIDIA:
+laptops RTX, DGX Spark, Jetson Orin y servidores. **Instalar:** [`docs/INSTALL.md`](docs/INSTALL.md) ·
+**Qué falta:** [`docs/BETA.md`](docs/BETA.md) · **API:** [`docs/api/openapi-v1.json`](docs/api/openapi-v1.json)
 
 ---
 
@@ -138,37 +143,41 @@ $ magnus quants llama-3.1-70b --target b200
 
 ```
 magnus/
-├── core/                 # Lógica pura, sin framework, testeable sin GPU
-│   ├── hardware.py       #   detección de GPU + presets de destino (b200, spark…)
-│   ├── model_registry.py #   metadatos de modelos (params, capas, GQA, contexto)
-│   ├── compatibility.py  #   ¿cabe el modelo? — VRAM, recomendación y matriz de cuants
-│   ├── downloader.py     #   descarga de modelos vía CLI de Hugging Face
-│   └── runtimes.py       #   abstracción ollama / vLLM / TensorRT-LLM
-├── daemon/               # API local (FastAPI) — contrato único de todos los clientes
-│   └── app.py            #   /health /hardware /models /compatibility (+ futuros)
-├── cli/                  # CLI (Typer) — cliente delgado sobre core
-│   └── main.py           #   magnus hardware | models | check | quants | pull | serve
-├── deploy/               # Dockerfile + docker-compose (contenedor "nim_magnus")
-├── docs/                 # Especificación profunda (handoff para la IA ejecutora)
-│   ├── AGENT_HANDOFF.md  #   ← EMPIEZA AQUÍ si vas a ejecutar el backend
-│   ├── ARCHITECTURE.md
-│   ├── MODEL_MOUNTING.md
-│   ├── ROADMAP.md
-│   └── CONVENTIONS.md
-├── clients/              # (vacío) aquí entrará el cliente Flutter en la Fase 1
-└── pyproject.toml
+├── core/                  # Lógica pura, sin framework, testeable sin GPU
+│   ├── hardware.py        #   GPU real (incluye Jetson / memoria unificada) + presets
+│   ├── platform.py        #   familia NVIDIA y cómo conviene servir en ella
+│   ├── telemetry.py       #   uso, W y °C (nvidia-smi o sysfs del Jetson)
+│   ├── compatibility.py   #   ¿cabe el modelo? — VRAM, guarda de memoria, cuants
+│   ├── catalog.py         #   modelos de Ollama recomendados según la memoria real
+│   ├── runtime_manager.py #   descargar, cargar, liberar (Ollama; vLLM después)
+│   ├── reclaim.py         #   libera la caché antes de cargar en memoria unificada
+│   ├── chat.py            #   chat en streaming con skills, RAG y medición
+│   ├── metering.py        #   energía medida, coste local vs nube, ahorro
+│   ├── skills.py          #   SKILL.md con recarga en caliente
+│   ├── rag.py             #   colecciones, embeddings locales, memoria
+│   ├── agent.py           #   agentes YAML con herramientas seguras
+│   ├── store.py           #   conversaciones y registro del medidor (SQLite)
+│   ├── config.py          #   carpeta de datos por SO y ajustes
+│   └── security.py        #   token de acceso fuera de loopback
+├── daemon/app.py          # API local (FastAPI + WebSocket) — contrato de todos los clientes
+├── cli/main.py            # CLI (Typer): platform, catalog, fetch, chat, rag, agent…
+├── skills/  agents/       # skills y agentes incluidos
+├── clients/desktop/       # app Flutter (Windows / macOS / Linux)
+├── deploy/                # Docker (servidor y Jetson) e instaladores Windows/Linux
+├── docs/                  # INSTALL, BETA, JETSON, API, arquitectura y handoff
+└── tests/                 # 264 tests, corren sin GPU
 ```
 
 ## 7. Estado y hoja de ruta (resumen)
 
-- **Fase 0 (en curso):** núcleo + daemon + CLI. Hardware, registro de modelos y **compatibilidad
-  funcionando**. API local de solo lectura. — _esqueleto de este commit._
-- **Fase 1:** skills (crear/editar/hot-reload), memoria + mini-RAG local, runtime de agentes
-  (YAML), medidor de tokens/coste. WebSocket de chat en streaming.
-- **Fase 2:** cliente Flutter de escritorio sobre la misma API.
-- **Fase 3:** app móvil Flutter; empaquetado; marketplace de skills; edición enterprise on-prem.
+- **Fase 0 ✅** núcleo, daemon y CLI; compatibilidad de VRAM.
+- **Fase 1 ✅** runtime manager, chat en streaming con medidor de coste, skills, memoria y RAG
+  local, agentes con herramientas, token de acceso. Probado en un Jetson Orin Nano real.
+- **Fase 2 ✅ (beta)** app de escritorio Flutter conectada a toda la API.
+- **Después de la beta:** vLLM y TensorRT-LLM, instalador firmado, app móvil, marketplace de
+  skills, edición enterprise on-prem.
 
-Detalle por tarea en [`docs/ROADMAP.md`](docs/ROADMAP.md).
+Pendientes de la beta en [`docs/BETA.md`](docs/BETA.md); hoja de ruta en [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## 8. Modelo de negocio (resumen)
 

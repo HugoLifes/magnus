@@ -1,0 +1,65 @@
+# Magnus Cloud en un equipo NVIDIA: vLLM + gateway con créditos.
+#
+# Sirve igual para el B200 de Magnus Cloud que para un cliente Team que reparte
+# la GPU de su oficina. Convención de la organización: prefijo "nim_".
+#
+#   1. cp deploy/cloud/models.example.json deploy/cloud/models.json  (y ajusta precios)
+#   2. export MAGNUS_GATEWAY_ADMIN_TOKEN=$(python -c "import secrets;print(secrets.token_urlsafe(32))")
+#   3. docker compose -f deploy/docker-compose.cloud.yml up -d
+#   4. docker exec nim_magnus_gateway python -m cloud.admin cuenta-nueva "Cliente"
+#
+# Imagen de vLLM según la plataforma: `vllm/vllm-openai` en x86 (B200, RTX); en
+# DGX Spark la de NGC para GB10; en Jetson la de jetson-containers. Cambia
+# `image` y el modelo por los de tu equipo.
+#
+# Expón el 8430 a internet SOLO detrás de un proxy con TLS (Caddy, Traefik): la
+# clave del cliente viaja en cada petición.
+
+name: magnus-cloud
+
+services:
+  nim_magnus_vllm:
+    image: vllm/vllm-openai:latest
+    container_name: nim_magnus_vllm
+    restart: unless-stopped
+    command:
+      - "--model"
+      - "Qwen/Qwen3-32B-AWQ"
+      - "--max-model-len"
+      - "32768"
+      - "--gpu-memory-utilization"
+      - "0.90"
+    environment:
+      - HF_HOME=/models
+    volumes:
+      - vllm-models:/models
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Sin puertos publicados: solo el gateway habla con vLLM.
+
+  nim_magnus_gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.cloud
+    container_name: nim_magnus_gateway
+    restart: unless-stopped
+    depends_on:
+      - nim_magnus_vllm
+    environment:
+      - MAGNUS_GATEWAY_ADMIN_TOKEN=${MAGNUS_GATEWAY_ADMIN_TOKEN:?Define MAGNUS_GATEWAY_ADMIN_TOKEN}
+      - MAGNUS_GATEWAY_UPSTREAM=http://nim_magnus_vllm:8000/v1
+    volumes:
+      - ./cloud/models.json:/config/models.json:ro
+      - ledger:/data
+    ports:
+      - "8430:8430"
+
+volumes:
+  vllm-models:
+  ledger:

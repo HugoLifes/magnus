@@ -9,9 +9,10 @@ dist/
 venv/
 env/
 
-# Magnus runtime data (modelos, memoria, vector store, logs)
-data/
-models/
+# Magnus runtime data (modelos, memoria, vector store, logs). Ancladas a la raíz:
+# sin la barra inicial también ignoraban clients/desktop/lib/features/models/.
+/data/
+/models/
 *.gguf
 *.safetensors
 magnus.db
@@ -32,3 +33,6 @@ Thumbs.db
 # Agent skills (referencia local, no parte del producto)
 .agents/
 COMMIT_MSG.tmp
+
+# Precios de Magnus Cloud de cada operador (ver deploy/cloud/models.example.json)
+deploy/cloud/models.json

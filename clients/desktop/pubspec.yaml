@@ -1,7 +1,7 @@
 name: magnus_desktop
 description: Magnus — cliente de escritorio (Windows/macOS/Linux). Clean architecture + BLoC.
 publish_to: "none"
-version: 0.0.1+1
+version: 0.9.0-beta.1+1
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -19,6 +19,7 @@ dependencies:
 
   # --- Red ---
   dio: ^5.7.0                 # (pedido) cliente HTTP hacia el daemon de Magnus
+  web_socket_channel: ^3.0.1  # chat con tokens en vivo (WebSocket /chat del daemon)
 
   # --- Diseño: 3 sistemas nativos ---
   fluent_ui: ^4.9.2           # (pedido) diseño Windows (Fluent / WinUI)
@@ -37,14 +38,17 @@ dependencies:
   fl_chart: ^0.69.0           # gráficas para el dashboard de tokens/coste
   data_table_2: ^2.5.15       # tablas con scroll/orden para modelos y cuantizaciones
   google_fonts: ^6.2.1        # tipografía
-  lucide_icons_flutter: ^3.1.14  # set de iconos fino y consistente (compatible Flutter 3.44)
   toastification: ^2.3.0      # notificaciones/toasts no intrusivos
 
   # --- Persistencia ligera ---
   shared_preferences: ^2.3.2  # recordar diseño elegido y URL del daemon
   dynamic_color: ^1.8.1
+  fluentui_system_icons: ^1.1.273  # iconos del tema Windows (Fluent)
+  cupertino_icons: ^1.0.9         # iconos del tema Apple (SF/Cupertino)
 
 dev_dependencies:
+  flutter_test:
+    sdk: flutter              # pruebas de widgets (test/)
   flutter_lints: ^4.0.0
   msix: ^3.16.7               # (pedido) empaquetado .msix para distribuir en Windows
 
@@ -56,6 +60,9 @@ msix_config:
   display_name: Magnus
   publisher_display_name: Magnus
   identity_name: io.magnus.desktop
-  msix_version: 0.0.1.0
+  msix_version: 0.9.0.0
+  # Sin certificado propio se firma con el de prueba del paquete `msix`. Instalar
+  # ese certificado en el equipo es decisión del usuario, no del build.
+  install_certificate: false
   logo_path: assets\icon.png
   capabilities: internetClient

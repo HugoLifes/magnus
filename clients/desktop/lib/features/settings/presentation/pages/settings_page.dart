@@ -3,13 +3,17 @@ import 'package:flutter/material.dart'
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../core/theme/icons.dart';
 
 import '../../../../core/constants.dart';
 import '../../../../core/theme/design_system.dart';
 import '../../../../core/theme/magnus_theme.dart';
 import '../../../../shared/widgets/ui.dart';
 import '../cubit/settings_cubit.dart';
+import '../widgets/daemon_token_field.dart';
+import '../widgets/license_card.dart';
+import '../widgets/meter_settings_card.dart';
+import '../widgets/persona_card.dart';
 
 /// Ajustes: diseño nativo, apariencia (claro/oscuro) y URL del daemon.
 class SettingsPage extends StatefulWidget {
@@ -43,13 +47,16 @@ class _SettingsPageState extends State<SettingsPage> {
         child: BlocBuilder<SettingsCubit, SettingsState>(
           builder: (context, state) {
             return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SectionHeader(
-                  icon: LucideIcons.settings,
+                SectionHeader(
+                  icon: context.icons.settings,
+                  eyebrow: 'Preferencias',
                   title: 'Ajustes',
                   subtitle: 'Diseño, apariencia y conexión al daemon.',
                 ),
+                LicenseCard(key: ValueKey('licencia-${state.daemonUrl}')),
+                const SizedBox(height: 16),
 
                 // --- Diseño ---
                 GlassCard(
@@ -113,8 +120,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                     children: [
                                       Icon(
                                           a == Appearance.dark
-                                              ? LucideIcons.moon
-                                              : LucideIcons.sun,
+                                              ? context.icons.dark
+                                              : context.icons.light,
                                           size: 16,
                                           color: state.appearance == a
                                               ? t.accent
@@ -169,6 +176,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(height: 16),
 
                 // --- Tipografía ---
+                PersonaCard(key: ValueKey('persona-${state.daemonUrl}')),
+                const SizedBox(height: 16),
                 GlassCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,16 +269,22 @@ class _SettingsPageState extends State<SettingsPage> {
                           const SizedBox(width: 12),
                           MagnusButton(
                             label: 'Guardar',
-                            icon: LucideIcons.check,
+                            icon: context.icons.check,
                             onTap: () => context
                                 .read<SettingsCubit>()
                                 .setDaemonUrl(_urlCtrl.text),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 16),
+                      const DaemonTokenField(),
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                // --- Medidor (se guarda en el daemon) ---
+                MeterSettingsCard(key: ValueKey(state.daemonUrl)),
               ],
             );
           },
@@ -305,9 +320,9 @@ class _DesignOption extends StatelessWidget {
           children: [
             Icon(
               switch (design) {
-                DesignSystem.windows => LucideIcons.monitor,
-                DesignSystem.material => LucideIcons.smartphone,
-                DesignSystem.apple => LucideIcons.laptop,
+                DesignSystem.windows => context.icons.monitor,
+                DesignSystem.material => context.icons.phone,
+                DesignSystem.apple => context.icons.laptop,
               },
               size: 20,
               color: selected ? t.accent : t.textMuted,

@@ -1,0 +1,46 @@
+# Comprobaciones automáticas: lo mismo que se corre a mano antes de fusionar
+# (ver docs/GIT.md §3), para que nada llegue a `pre-prod` ni a `main` sin pasar.
+name: pruebas
+
+on:
+  push:
+    branches: [main, pre-prod]
+  pull_request:
+    branches: [main, pre-prod]
+
+jobs:
+  nucleo:
+    name: Núcleo, daemon y CLI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Instalar
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Estilo (ruff)
+        run: ruff check .
+      - name: Pruebas (pytest)
+        # El núcleo se prueba sin GPU a propósito: así corre en cualquier runner.
+        run: pytest -q
+
+  app:
+    name: App de escritorio
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clients/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Dependencias
+        run: flutter pub get
+      - name: Análisis
+        run: flutter analyze
+      - name: Pruebas de widgets
+        run: flutter test

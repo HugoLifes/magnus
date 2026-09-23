@@ -1,0 +1,28 @@
+# Imagen del daemon de Magnus para Jetson Orin (arm64, JetPack 6).
+#
+# El daemon no toca la GPU: la inferencia la hace Ollama en su propio
+# contenedor (nim_ollama, ver docker-compose.jetson.yml). Por eso basta una
+# base Python ligera, sin CUDA — la imagen CUDA de Jetson pesa ~15 GB y el
+# Orin Nano tiene el disco y la RAM contados.
+#
+# La detección de hardware funciona sin nvidia-smi: lee el modelo del Jetson
+# de /proc/device-tree y la memoria unificada de /proc/meminfo.
+FROM python:3.10-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    MAGNUS_HOME=/app/data
+
+WORKDIR /app
+COPY pyproject.toml requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY core ./core
+COPY daemon ./daemon
+COPY cli ./cli
+COPY skills ./skills
+COPY agents ./agents
+COPY scripts ./scripts
+
+EXPOSE 8420
+CMD ["uvicorn", "daemon.app:api", "--host", "0.0.0.0", "--port", "8420"]
