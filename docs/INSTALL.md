@@ -44,6 +44,24 @@ En todos los casos hace falta **Ollama**, que es quien ejecuta los modelos.
 Referencia: con 4 GB de VRAM caben modelos de hasta ~3 B; con 8 GB, hasta ~8 B; con
 16 GB, hasta ~14 B; con 24 GB, hasta ~32 B (todos en q4).
 
+### Instalador `.exe` (app + daemon, sin Python)
+
+`MagnusSetup-<versión>.exe` instala la app de escritorio y el daemon (con Python dentro) en
+`%LOCALAPPDATA%\Programs\Magnus`, sin permisos de administrador. Deja Magnus en el menú
+Inicio, ofrece instalar Ollama si falta y se desinstala desde **Configuración → Aplicaciones**.
+El acceso directo arranca el daemon si no está corriendo y abre la app. No viene firmado:
+la primera vez Windows puede mostrar "Windows protegió su PC" → **Más información →
+Ejecutar de todas formas**.
+
+Para generarlo hace falta Python, Flutter, Visual Studio Build Tools con C++ e
+Inno Setup 6 (`winget install JRSoftware.InnoSetup`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\windows\build-installer.ps1
+```
+
+El instalador queda en `build\installer\`.
+
 ## Linux (RTX o DGX Spark)
 
 ```bash
