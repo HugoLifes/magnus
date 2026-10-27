@@ -43,7 +43,7 @@ command -v ollama >/dev/null 2>&1 ||
 
 step "Copiando Magnus a $APP_DIR"
 mkdir -p "$APP_DIR"
-for item in core daemon cli skills agents; do
+for item in core daemon cli cloud skills agents; do
   rm -rf "${APP_DIR:?}/$item"
   cp -r "$SOURCE/$item" "$APP_DIR/$item"
 done

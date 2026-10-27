@@ -28,11 +28,18 @@ $python = $null
 foreach ($candidate in @('py', 'python', 'python3')) {
     $cmd = Get-Command $candidate -ErrorAction SilentlyContinue
     if ($null -eq $cmd) { continue }
-    $args = @()
-    if ($candidate -eq 'py') { $args = @('-3') }
-    $version = & $cmd.Source @args -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>$null
+    $pyArgs = @()
+    if ($candidate -eq 'py') { $pyArgs = @('-3') }
+    # Sin comillas dobles: Windows PowerShell 5.1 las quita al pasar argumentos a un .exe.
+    # try/catch: con $ErrorActionPreference = 'Stop', cualquier salida por stderr de un
+    # candidato (p. ej. el alias de la Microsoft Store) cortaría el script.
+    try {
+        $version = & $cmd.Source @pyArgs -c 'import sys; print(*sys.version_info[:2], sep=chr(46))' 2>$null
+    } catch {
+        continue
+    }
     if ($LASTEXITCODE -eq 0 -and [version]$version -ge [version]'3.10') {
-        $python = @($cmd.Source) + $args
+        $python = @($cmd.Source) + $pyArgs
         Write-Host "    Python $version en $($cmd.Source)"
         break
     }
@@ -52,7 +59,7 @@ if ($null -eq (Get-Command ollama -ErrorAction SilentlyContinue)) {
 # --- Copia ------------------------------------------------------------------
 Write-Step "Copiando Magnus a $AppDir"
 New-Item -ItemType Directory -Force -Path $AppDir | Out-Null
-foreach ($item in @('core', 'daemon', 'cli', 'skills', 'agents')) {
+foreach ($item in @('core', 'daemon', 'cli', 'cloud', 'skills', 'agents')) {
     $target = Join-Path $AppDir $item
     if (Test-Path $target) { Remove-Item -Recurse -Force $target }
     Copy-Item -Recurse -Path (Join-Path $Source $item) -Destination $target
